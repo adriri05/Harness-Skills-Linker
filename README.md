@@ -16,3 +16,8 @@ python app.py
 ```
 
 El servidor escucha solo en `127.0.0.1` y abre el navegador.
+
+## Detener el servidor
+
+- Pulsa `Ctrl+C` en la terminal: el servidor cierra el socket y termina con código 0.
+- O usa el botón de salir de la web, que llama a `POST /api/shutdown` y detiene el proceso.
