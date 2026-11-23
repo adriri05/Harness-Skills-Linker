@@ -54,6 +54,18 @@ class PlannerTest(LinkerBase):
         self.plan()
         self.assertEqual(list(self.dirs["b"].iterdir()), [])
 
+    def test_two_harnesses_sharing_one_folder_never_link_to_themselves(self):
+        # agents y codex apuntan a la misma carpeta en el catálogo.
+        make_skill(self.dirs["a"], "alpha")
+        self.custom.append({"id": "a2", "name": "a2", "path": str(self.dirs["a"])})
+        acts = self.actions(self.plan(ids=("a", "a2", "b")))
+        self.assertEqual(acts[("alpha", "a")].action, "already_linked")
+        self.assertEqual(acts[("alpha", "a2")].action, "already_linked")
+        self.assertEqual(acts[("alpha", "b")].action, "create_link")
+        result = self.apply(ids=("a", "a2", "b"))
+        self.assertEqual(result.to_dict()["summary"]["error"], 0)
+        self.assertTrue((self.dirs["a"] / "alpha" / "SKILL.md").is_file())
+
     def test_to_dict_contract(self):
         make_skill(self.dirs["a"], "alpha")
         d = self.plan().to_dict()
