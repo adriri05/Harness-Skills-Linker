@@ -1,0 +1,62 @@
+{
+  "harnesses": [
+    {
+      "id": "agents",
+      "name": "Agents (carpeta compartida)",
+      "global": "~/.agents/skills",
+      "project": ".agents/skills",
+      "binaries": [],
+      "verified": true,
+      "source": "https://opencode.ai/docs/skills"
+    },
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "global": "~/.claude/skills",
+      "global_env": { "var": "CLAUDE_CONFIG_DIR", "subdir": "skills" },
+      "project": ".claude/skills",
+      "binaries": ["claude"],
+      "verified": true,
+      "source": "https://www.mintlify.com/vercel-labs/skills/guides/supported-agents"
+    },
+    {
+      "id": "codex",
+      "name": "Codex",
+      "global": "~/.codex/skills",
+      "global_env": { "var": "CODEX_HOME", "subdir": "skills" },
+      "project": ".agents/skills",
+      "binaries": ["codex"],
+      "verified": false,
+      "note": "Las fuentes discrepan: ~/.codex/skills o ~/.agents/skills. Revisar la documentación vigente."
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "global": "~/.cursor/skills",
+      "project": ".cursor/skills",
+      "binaries": ["cursor"],
+      "verified": false,
+      "source": "https://cursor.com/docs/skills",
+      "note": "La documentación oficial confirma .cursor/skills en proyecto y la lectura de ~/.claude/skills y ~/.codex/skills. ~/.cursor/skills es convención de la comunidad."
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "global": "~/.config/opencode/skills",
+      "global_env": { "var": "OPENCODE_CONFIG_DIR", "subdir": "skills" },
+      "project": ".opencode/skills",
+      "binaries": ["opencode"],
+      "verified": true,
+      "source": "https://opencode.ai/docs/skills"
+    },
+    {
+      "id": "gemini-cli",
+      "name": "Gemini CLI",
+      "global": "~/.gemini/skills",
+      "project": ".gemini/skills",
+      "binaries": ["gemini"],
+      "verified": false,
+      "note": "Varias fuentes indican también .agents/skills. Revisar la documentación vigente."
+    }
+  ]
+}
