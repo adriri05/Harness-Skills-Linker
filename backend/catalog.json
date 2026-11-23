@@ -29,18 +29,14 @@
     {
       "id": "codex",
       "name": "Codex",
-      "global": "~/.codex/skills",
-      "global_env": {
-        "var": "CODEX_HOME",
-        "subdir": "skills"
-      },
+      "global": "~/.agents/skills",
       "project": ".agents/skills",
       "binaries": [
         "codex"
       ],
-      "verified": false,
+      "verified": true,
       "source": "https://learn.chatgpt.com/docs/build-skills",
-      "note": "La documentación oficial (developers.openai.com/codex/skills, redirige a learn.chatgpt.com) indica $HOME/.agents/skills y .agents/skills, además de /etc/codex/skills para administración. No menciona ~/.codex/skills ni CODEX_HOME, que quedan como ruta heredada sin confirmar. Falta decidir si se cambia global a ~/.agents/skills y se retira CODEX_HOME (requiere ajustar tests)."
+      "note": "La documentación oficial indica $HOME/.agents/skills y .agents/skills, las mismas carpetas que la entrada agents. También lee /etc/codex/skills (administración), no gestionada aquí."
     },
     {
       "id": "cursor",
@@ -58,17 +54,13 @@
       "id": "opencode",
       "name": "OpenCode",
       "global": "~/.config/opencode/skills",
-      "global_env": {
-        "var": "OPENCODE_CONFIG_DIR",
-        "subdir": "skills"
-      },
       "project": ".opencode/skills",
       "binaries": [
         "opencode"
       ],
-      "verified": false,
+      "verified": true,
       "source": "https://opencode.ai/docs/skills",
-      "note": "Rutas confirmadas: global ~/.config/opencode/skills (también ~/.claude/skills y ~/.agents/skills), proyecto .opencode/skills (también .claude/skills y .agents/skills). OPENCODE_CONFIG_DIR no aparece en opencode.ai/docs/skills ni en /docs/config, sin confirmar."
+      "note": "También lee ~/.claude/skills y ~/.agents/skills en global, y .claude/skills y .agents/skills en proyecto."
     },
     {
       "id": "gemini-cli",
