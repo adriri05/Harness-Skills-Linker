@@ -99,9 +99,13 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(self.post("/api/scan", raw=b"[1]")[0], 400)
 
     def test_body_too_large(self):
-        raw = b'{"scope":"global","custom":"' + b"a" * (1024 * 1024) + b'"}'
-        status, _ = self.post("/api/scan", raw=raw)
+        # El servidor decide por la cabecera, antes de leer el cuerpo. Declarar el
+        # tamaño sin enviarlo evita el BrokenPipe que macOS da al cerrar con 1 MB sin leer.
+        status, body = self.post(
+            "/api/scan", raw=b"{}", headers={"Content-Length": str(1024 * 1024 + 1)}
+        )
         self.assertEqual(status, 400)
+        self.assertIn("error", body)
 
     def test_unknown_route(self):
         self.assertEqual(self.post("/api/nada", {})[0], 404)
