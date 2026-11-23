@@ -3,12 +3,78 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <meta name="session-token" content="__SESSION_TOKEN__">
   <title>Harness Skills Linker</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="app"></main>
+  <header class="topbar">
+    <h1>Harness Skills Linker</h1>
+    <button type="button" id="btn-shutdown" class="btn-danger">Detener servidor</button>
+  </header>
+
+  <div id="banner" role="alert" hidden></div>
+
+  <main id="app">
+    <section aria-labelledby="h-harnesses">
+      <div class="section-head">
+        <h2 id="h-harnesses">Harnesses</h2>
+        <button type="button" id="btn-scan">Volver a escanear</button>
+      </div>
+      <div id="harness-list" aria-live="polite"></div>
+
+      <form id="custom-form" class="inline-form" autocomplete="off">
+        <h3>Carpeta personalizada</h3>
+        <div class="fields">
+          <label>Nombre <input id="custom-name" required maxlength="60"></label>
+          <label class="grow">Ruta absoluta <input id="custom-path" required placeholder="/home/usuario/skills"></label>
+          <button type="submit">Añadir carpeta</button>
+        </div>
+        <p id="custom-error" class="field-error" hidden></p>
+      </form>
+    </section>
+
+    <section aria-labelledby="h-scope">
+      <h2 id="h-scope">Alcance</h2>
+      <fieldset>
+        <legend class="visually-hidden">Alcance de las carpetas</legend>
+        <label class="choice"><input type="radio" name="scope" value="global" checked> Global de usuario</label>
+        <label class="choice"><input type="radio" name="scope" value="project"> Directorio de proyecto</label>
+      </fieldset>
+      <label id="project-row" hidden>Ruta del proyecto <input id="project-dir" placeholder="/ruta/al/proyecto"></label>
+    </section>
+
+    <section aria-labelledby="h-plan">
+      <h2 id="h-plan">Plan de enlaces</h2>
+      <div class="fields">
+        <label>Carpeta canónica <select id="canonical"></select></label>
+        <label>Regla de conflicto <select id="conflict-rule"></select></label>
+        <button type="button" id="btn-plan">Calcular plan</button>
+        <button type="button" id="btn-apply" class="btn-primary" disabled>Aplicar enlaces</button>
+      </div>
+      <p id="apply-hint" class="muted" hidden></p>
+      <div id="plan" aria-live="polite"></div>
+    </section>
+
+    <section aria-labelledby="h-results" id="results-section" hidden>
+      <h2 id="h-results">Resultados</h2>
+      <div id="results" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+    <form method="dialog">
+      <h2 id="confirm-title">Mover skills a la carpeta canónica</h2>
+      <p id="confirm-text"></p>
+      <div class="dialog-actions">
+        <button value="cancel">Cancelar</button>
+        <button value="ok" class="btn-danger">Mover y enlazar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="mock.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
