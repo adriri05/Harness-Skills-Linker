@@ -16,9 +16,9 @@ from typing import Optional
 
 from .catalog import Harness, load_catalog
 from .scanner import Skill, scan_skill_dir
-from .symlinks import WINDOWS_HELP, LinkError, can_create_symlinks, is_link, make_dir_link, remove_link
+from .symlinks import LinkError, can_create_symlinks, is_link, make_dir_link, remove_link
 
-ConflictRule = str  # "none" | "prefer_canonical" | "prefer_harness:<id>" | "move_to_canonical"
+ConflictRule = str  # "none" | "prefer_canonical" | "prefer_harness:<id>" | "move_to_canonical" | "move_all_to_canonical"
 
 BACKUP_DIR = ".linker-backup"
 ACTIONS = ("create_link", "already_linked", "conflict", "skipped")
@@ -127,7 +127,7 @@ def _custom_harnesses(custom: list[dict] | None) -> list[Harness]:
 
 
 def _validate_rule(rule: str) -> None:
-    if rule in ("none", "prefer_canonical", "move_to_canonical"):
+    if rule in ("none", "prefer_canonical", "move_to_canonical", "move_all_to_canonical"):
         return
     if rule.startswith("prefer_harness:") and rule.split(":", 1)[1]:
         return
@@ -197,7 +197,7 @@ def build_plan(
             canon = _Canon("canonical", expanded, False)
         plan.canonical = str(canon.dir)
 
-    if conflict_rule in ("prefer_canonical", "move_to_canonical") and not canon:
+    if conflict_rule in ("prefer_canonical", "move_to_canonical", "move_all_to_canonical") and not canon:
         plan.warnings.append(f"{conflict_rule} sin carpeta canónica: los conflictos no se resuelven.")
     if conflict_rule.startswith("prefer_harness:"):
         pid = conflict_rule.split(":", 1)[1]
@@ -205,7 +205,10 @@ def build_plan(
             plan.warnings.append(f"La regla prefiere '{pid}', que no está entre los harnesses seleccionados.")
 
     if os.name == "nt" and not can_create_symlinks():
-        plan.warnings.append("Sin permiso para symlinks: se usarán junctions. " + WINDOWS_HELP)
+        plan.warnings.append(
+            "Windows no permite symlinks sin privilegios: se crearán junctions, que no necesitan "
+            "permisos y funcionan igual para estas carpetas."
+        )
 
     # Lectura del disco: skills por harness, indexadas por nombre.
     by_harness: dict[str, dict[str, Skill]] = {}
@@ -243,15 +246,17 @@ def _plan_skill(
         src = canon_skill.real_path
     elif len(cands) == 1:
         src = next(iter(good.values())).real_path
-    if multiple:
-        if rule.startswith("prefer_harness:"):
-            pref = good.get(rule.split(":", 1)[1])
-            if pref:
-                src = pref.real_path
-        elif rule == "move_to_canonical" and canon and not canon_skill:
-            winner = next((h for h in order if h in good and good[h].kind == "real"), None)
-            if winner:
-                src = str(canon.dir / name)
+    if multiple and rule.startswith("prefer_harness:"):
+        pref = good.get(rule.split(":", 1)[1])
+        if pref:
+            src = pref.real_path
+    elif canon and not canon_skill and (
+        rule == "move_all_to_canonical" or (multiple and rule == "move_to_canonical")
+    ):
+        # move_all_to_canonical también mueve las skills que solo existen en un harness.
+        winner = next((h for h in order if h in good and good[h].kind == "real"), None)
+        if winner:
+            src = str(canon.dir / name)
     conflict = multiple and src is None
     resolution = rule if multiple and rule != "none" else None
 
@@ -296,7 +301,7 @@ def _plan_skill(
                 "Carpeta origen." if s.kind == "real" else "Ya enlazada al origen.", src)
         elif s.kind == "symlink":
             row(hid, "create_link", f"Reapunta el enlace desde {s.real_path}.", src, replace_link=True)
-        elif rule == "move_to_canonical" and multiple:
+        elif rule in ("move_to_canonical", "move_all_to_canonical") and multiple:
             row(hid, "create_link", "Carpeta real duplicada: se hace backup y se enlaza al origen.",
                 src, backup=True)
         elif multiple and rule != "none":

@@ -330,6 +330,29 @@ class ConflictRulesTest(LinkerBase):
         self.assertEqual(again["summary"]["ok"], 0)
         self.assertEqual(again["summary"]["error"], 0)
 
+    def test_move_all_moves_skill_that_exists_in_one_harness(self):
+        # Sin conflicto: "alpha" solo existe en "a". move_to_canonical la deja donde está.
+        solo = self.tmp / "solo"
+        solo.mkdir()
+        canon = self.tmp / "canon"
+        make_skill(solo, "beta")
+        self.custom.append({"id": "s", "name": "s", "path": str(solo)})
+        kw = dict(ids=("s", "b"), canonical=str(canon))
+        self.apply(conflict_rule="move_to_canonical", **kw)
+        self.assertFalse((canon / "beta").exists())
+        self.assertFalse(is_link(solo / "beta"))
+
+        res = self.apply(conflict_rule="move_all_to_canonical", **kw)
+        self.assertEqual(res.to_dict()["summary"]["error"], 0)
+        self.assertTrue((canon / "beta" / "SKILL.md").is_file())
+        for base in (solo, self.dirs["b"]):
+            self.assertTrue(is_link(base / "beta"), base)
+        self.assertEqual(len(list((solo / linker.BACKUP_DIR).rglob("SKILL.md"))), 1)
+
+        again = self.apply(conflict_rule="move_all_to_canonical", **kw).to_dict()
+        self.assertEqual(again["summary"]["ok"], 0)
+        self.assertEqual(again["summary"]["error"], 0)
+
     def test_move_never_happens_without_explicit_rule(self):
         canon = self.tmp / "canon"
         for rule in ("none", "prefer_canonical"):
