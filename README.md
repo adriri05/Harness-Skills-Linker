@@ -1,6 +1,6 @@
 # Harness Skills Linker
 
-Herramienta web local que detecta los harnesses de agentes instalados en tu equipo (Claude Code, Codex, Cursor, OpenCode, Gemini CLI) y enlaza sus skills con symlinks, para mantener una sola copia de cada skill en lugar de una por harness.
+Herramienta web local que detecta los harnesses de agentes instalados en tu equipo (Claude Code, Codex, Cursor, OpenCode, Gemini CLI, Antigravity) y enlaza sus skills con symlinks, para mantener una sola copia de cada skill en lugar de una por harness.
 
 ## Qué problema resuelve
 
@@ -69,8 +69,9 @@ Definidos en [backend/catalog.json](backend/catalog.json), con la fuente oficial
 | Cursor | `~/.cursor/skills` | `.cursor/skills` |
 | OpenCode | `~/.config/opencode/skills` | `.opencode/skills` |
 | Gemini CLI | `~/.gemini/skills` | `.gemini/skills` |
+| Antigravity | `~/.gemini/config/skills` | `.agents/skills` |
 
-Codex y la carpeta compartida usan la misma ruta. Para añadir un harness, agrega una entrada al catálogo.
+Codex, Antigravity (en proyecto) y la carpeta compartida usan la misma ruta. Para añadir un harness, agrega una entrada al catálogo.
 
 ## Detener el servidor
 
