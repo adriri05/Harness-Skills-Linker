@@ -31,6 +31,12 @@ class CatalogTest(unittest.TestCase):
             self.by_id["codex"].project_path("/w"), self.by_id["agents"].project_path("/w")
         )
 
+    def test_antigravity_paths(self):
+        h = self.by_id["antigravity"]
+        self.assertEqual(h.global_path(), Path.home() / ".gemini" / "config" / "skills")
+        self.assertEqual(h.project_path("/w"), self.by_id["agents"].project_path("/w"))
+        self.assertEqual(h.binaries, ("agy",))
+
     def test_all_entries_verified(self):
         self.assertEqual([h.id for h in self.by_id.values() if not h.verified], [])
 

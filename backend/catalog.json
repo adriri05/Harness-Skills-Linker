@@ -73,6 +73,18 @@
       "verified": true,
       "source": "https://geminicli.com/docs/cli/skills/",
       "note": "Oficial: usuario ~/.gemini/skills (alias ~/.agents/skills) y workspace .gemini/skills (alias .agents/skills). El alias .agents/skills tiene prioridad."
+    },
+    {
+      "id": "antigravity",
+      "name": "Antigravity",
+      "global": "~/.gemini/config/skills",
+      "project": ".agents/skills",
+      "binaries": [
+        "agy"
+      ],
+      "verified": true,
+      "source": "https://antigravity.google/docs/skills",
+      "note": "Oficial: global ~/.gemini/config/skills y proyecto .agents/skills, la misma carpeta que agents y codex. Siguen admitidas las rutas anteriores ~/.gemini/antigravity/skills y .agent/skills, no gestionadas aquí. El CLI (agy) lee además ~/.gemini/antigravity-cli/skills y ~/.gemini/skills, que la app no lee."
     }
   ]
 }
