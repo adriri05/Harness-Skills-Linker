@@ -198,7 +198,7 @@ def build_plan(
         plan.canonical = str(canon.dir)
 
     if conflict_rule in ("prefer_canonical", "move_to_canonical", "move_all_to_canonical") and not canon:
-        plan.warnings.append(f"{conflict_rule} sin carpeta canónica: los conflictos no se resuelven.")
+        plan.warnings.append(f"La regla {conflict_rule} necesita una carpeta canónica. Sin ella, los conflictos quedan sin resolver.")
     if conflict_rule.startswith("prefer_harness:"):
         pid = conflict_rule.split(":", 1)[1]
         if pid not in dirs:
@@ -206,7 +206,7 @@ def build_plan(
 
     if os.name == "nt" and not can_create_symlinks():
         plan.warnings.append(
-            "Windows no permite symlinks sin privilegios: se crearán junctions, que no necesitan "
+            "Sin privilegios, Windows no permite symlinks. Se crearán junctions, que no necesitan "
             "permisos y funcionan igual para estas carpetas."
         )
 
@@ -270,7 +270,7 @@ def _plan_skill(
         target_dir = str(dirs[hid])
         if conflict:
             if s is None:
-                row(hid, "skipped", "Pendiente de resolver el conflicto de esta skill.")
+                row(hid, "skipped", "Pendiente de resolver el conflicto.")
             elif s.kind == "broken":
                 row(hid, "skipped", f"{_broken_reason(s.path).capitalize()}; pendiente del conflicto.")
             else:
@@ -286,7 +286,7 @@ def _plan_skill(
             row(hid, "skipped", f"Recibe la carpeta movida desde {winner}.")
             continue
         if _inside(target_dir, src):
-            row(hid, "skipped", "La carpeta del harness está dentro del origen; crearía un bucle.")
+            row(hid, "skipped", "La carpeta del harness está dentro del origen y crearía un bucle.")
             continue
         if s is None:
             row(hid, "create_link", "Falta en este harness.", src)
@@ -302,10 +302,10 @@ def _plan_skill(
         elif s.kind == "symlink":
             row(hid, "create_link", f"Reapunta el enlace desde {s.real_path}.", src, replace_link=True)
         elif rule in ("move_to_canonical", "move_all_to_canonical") and multiple:
-            row(hid, "create_link", "Carpeta real duplicada: se hace backup y se enlaza al origen.",
+            row(hid, "create_link", "Carpeta real duplicada. Se hace backup y se enlaza al origen.",
                 src, backup=True)
         elif multiple and rule != "none":
-            row(hid, "skipped", f"Se conserva la carpeta real; la regla {rule} no la sustituye.", src)
+            row(hid, "skipped", f"Se conserva la carpeta real porque la regla {rule} no la sustituye.", src)
         else:
             row(hid, "conflict", "Carpeta real distinta de la fuente canónica.", src, res=None)
     if winner:
@@ -374,14 +374,14 @@ def _execute(a: PlanAction) -> tuple[str, str]:
             if os.path.isdir(target) and _norm(str(target)) == _norm(src):
                 return "skipped", "Ya enlazado."
             if not a.replace_link:
-                return "error", "Existe un enlace distinto; no se sustituye."
+                return "error", "Ya hay un enlace distinto. No se sustituye."
             remove_link(target)
         elif target.is_dir() and a.backup:
             backup = _backup_path(target)
             os.rename(target, backup)
             notes.append(f"backup en {backup}")
         else:
-            return "error", "Existe una carpeta real o un fichero; no se sobrescribe."
+            return "error", "Ya hay una carpeta real o un fichero. No se sobrescribe."
 
     target.parent.mkdir(parents=True, exist_ok=True)
     kind = make_dir_link(target, src)

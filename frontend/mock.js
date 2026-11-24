@@ -94,6 +94,7 @@
       res = body.scope === 'project' && !body.project_dir ? reply({ error: 'Falta project_dir para el alcance de proyecto.' }, 400) : reply(scanData(body));
     } else if (path === '/api/plan') res = reply(planData(body));
     else if (path === '/api/apply') res = reply(applyData(body));
+    else if (path === '/api/pick-folder') res = reply({ path: 'C:\\Users\\demo\\mi-proyecto' });
     else if (path === '/api/shutdown') res = reply({ ok: true });
     else res = reply({ error: 'Ruta de API desconocida.' }, 404);
     return new Promise((r) => setTimeout(() => r(res), 120));

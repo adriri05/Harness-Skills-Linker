@@ -194,6 +194,32 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(status, 500)
         self.assertNotIn("boom", body["error"])
 
+    # --- pick-folder ---
+
+    def test_pick_folder_returns_chosen_path(self):
+        with mock.patch("backend.picker.pick_folder", return_value=str(self.tmp)):
+            status, body = self.post("/api/pick-folder", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"path": str(self.tmp)})
+
+    def test_pick_folder_cancelled_returns_null(self):
+        with mock.patch("backend.picker.pick_folder", return_value=None):
+            status, body = self.post("/api/pick-folder", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"path": None})
+
+    def test_pick_folder_unavailable_is_501(self):
+        from backend.picker import PickerUnavailable
+
+        with mock.patch("backend.picker.pick_folder", side_effect=PickerUnavailable("sin tk")):
+            status, body = self.post("/api/pick-folder", {})
+        self.assertEqual(status, 501)
+        self.assertIn("a mano", body["error"])
+
+    def test_pick_folder_requires_token(self):
+        status, _ = self.post("/api/pick-folder", {}, token=False)
+        self.assertEqual(status, 401)
+
     # --- shutdown ---
 
     def test_shutdown_stops_server_thread(self):

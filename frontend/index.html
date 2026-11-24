@@ -42,7 +42,10 @@
         <label class="choice"><input type="radio" name="scope" value="global" checked> Global de usuario</label>
         <label class="choice"><input type="radio" name="scope" value="project"> Directorio de proyecto</label>
       </fieldset>
-      <label id="project-row" hidden>Ruta del proyecto <input id="project-dir" placeholder="/ruta/al/proyecto"></label>
+      <div id="project-row" class="fields" hidden>
+        <label class="grow">Ruta del proyecto <input id="project-dir" placeholder="/ruta/al/proyecto"></label>
+        <button type="button" id="btn-pick-folder">Elegir carpeta</button>
+      </div>
     </section>
 
     <section aria-labelledby="h-plan">
@@ -65,7 +68,7 @@
 
   <dialog id="confirm-dialog" aria-labelledby="confirm-title">
     <form method="dialog">
-      <h2 id="confirm-title">Mover skills a la carpeta canónica</h2>
+      <h2 id="confirm-title">Mover a la carpeta canónica</h2>
       <p id="confirm-text"></p>
       <div class="dialog-actions">
         <button value="cancel">Cancelar</button>
