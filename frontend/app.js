@@ -19,7 +19,8 @@
   const RULES = [
     ['none', 'Sin regla (marcar conflictos)'],
     ['prefer_canonical', 'Preferir la carpeta canónica'],
-    ['move_to_canonical', 'Mover a la carpeta canónica'],
+    ['move_to_canonical', 'Mover duplicadas a la carpeta canónica'],
+    ['move_all_to_canonical', 'Mover todas las skills a la carpeta canónica'],
   ];
 
   const ACTION_LABELS = {
@@ -338,7 +339,7 @@
       return;
     }
     const rule = $('conflict-rule').value;
-    if ((rule === 'prefer_canonical' || rule === 'move_to_canonical') && !$('canonical').value) {
+    if (['prefer_canonical', 'move_to_canonical', 'move_all_to_canonical'].includes(rule) && !$('canonical').value) {
       showBanner('La regla elegida necesita una carpeta canónica. Selecciónala o cambia la regla.');
       return;
     }
@@ -372,7 +373,7 @@
   }
 
   async function applyPlan() {
-    if ($('conflict-rule').value === 'move_to_canonical' && !(await confirmMove())) return;
+    if (['move_to_canonical', 'move_all_to_canonical'].includes($('conflict-rule').value) && !(await confirmMove())) return;
     showBanner('');
     setBusy(true);
     try {
