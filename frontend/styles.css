@@ -43,16 +43,31 @@ fieldset { border: 0; padding: 0; margin: 0 0 8px; display: flex; gap: 20px; fle
 .inline-form { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
 .field-error { color: var(--bad); margin: 8px 0 0; }
 
-.harness { display: grid; grid-template-columns: 24px 1fr auto; gap: 4px 12px; padding: 12px 0; border-top: 1px solid var(--border); }
+.harness-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.harness-tools input[type=search] { flex: 1 1 220px; width: auto; margin: 0; }
+.harness-tools select { width: auto; margin: 0; }
+.harness-tools .muted { margin-left: auto; font-size: .9rem; }
+.harness-scroll { max-height: 60vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+.harness-empty { margin: 0; padding: 12px; }
+.harness { display: grid; grid-template-columns: 18px 1fr; gap: 0 12px; align-items: start; padding: 0 12px; border-top: 1px solid var(--border); }
 .harness:first-child { border-top: 0; }
-.harness input[type=checkbox] { width: 18px; height: 18px; margin: 3px 0 0; }
-.harness-name { font-weight: 600; }
-.harness-path { grid-column: 2; font-family: ui-monospace, Consolas, monospace; font-size: .85rem; color: var(--muted); overflow-wrap: anywhere; }
-.harness-meta { grid-column: 2; color: var(--muted); font-size: .9rem; }
-.harness-status { grid-row: 1; grid-column: 3; font-size: .85rem; padding: 1px 8px; border-radius: 10px; border: 1px solid currentColor; white-space: nowrap; }
+.harness input[type=checkbox] { width: 18px; height: 18px; margin: 9px 0 0; }
+.harness-details > summary { display: grid; grid-template-columns: 1fr 6rem 8rem 9.5rem; gap: 12px; align-items: center; min-height: 36px; padding: 4px 0; cursor: pointer; }
+.harness-name { font-weight: 600; overflow-wrap: anywhere; }
+.harness-count { color: var(--muted); font-size: .9rem; white-space: nowrap; }
+.harness-broken { font-size: .85rem; white-space: nowrap; }
+.harness-status { justify-self: end; font-size: .85rem; padding: 1px 8px; border-radius: 10px; border: 1px solid currentColor; white-space: nowrap; }
+.harness-body { padding: 0 0 10px; }
+.harness-path { font-family: ui-monospace, Consolas, monospace; font-size: .85rem; color: var(--muted); overflow-wrap: anywhere; }
+.harness-meta { color: var(--muted); font-size: .9rem; }
 .st-ok { color: var(--ok); } .st-off { color: var(--muted); } .st-warn { color: var(--warn); } .st-bad { color: var(--bad); }
-.harness details { grid-column: 2; }
-.skill-list { list-style: none; margin: 6px 0 0; padding: 0; font-size: .9rem; }
+@media (max-width: 600px) {
+  .harness-details > summary { grid-template-columns: 1fr auto; }
+  .harness-count { grid-column: 1; }
+  .harness-broken { display: none; }
+  .harness-status { grid-row: 1; grid-column: 2; }
+}
+.skill-list { list-style: none; margin: 6px 0 0; padding: 0; font-size: .9rem; max-height: 240px; overflow-y: auto; }
 .skill-list li { display: flex; gap: 12px; padding: 2px 0; }
 .skill-list .kind { margin-left: auto; white-space: nowrap; }
 .skill-name { overflow-wrap: anywhere; }
