@@ -10,6 +10,9 @@
     selected: new Set(),
     custom: [],
     scope: 'global',
+    query: '',
+    status: 'all',     // all | detected | skills | selected
+    open: new Set(),   // harnesses con el detalle desplegado
     plan: null,        // último plan calculado
     planStale: false,  // la selección cambió después de calcularlo
     busy: false,
@@ -128,55 +131,95 @@
     return ['No detectado', 'st-off'];
   }
 
+  function matchesFilter(hn) {
+    const q = state.query.trim().toLowerCase();
+    if (q && !(hn.name.toLowerCase().includes(q) || hn.path.toLowerCase().includes(q))) return false;
+    if (state.status === 'detected') return !!hn.detected;
+    if (state.status === 'skills') return (hn.skills || []).length > 0;
+    if (state.status === 'selected') return state.selected.has(hn.id);
+    return true;
+  }
+
+  function harnessRow(hn) {
+    const skills = hn.skills || [];
+    const broken = skills.filter((s) => s.kind === 'broken').length;
+    const [label, cls] = harnessStatus(hn);
+    const cb = h('input', { type: 'checkbox', id: 'sel-' + hn.id, disabled: !hn.dir_exists, 'aria-label': 'Incluir ' + hn.name });
+    cb.checked = state.selected.has(hn.id);
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.selected.add(hn.id); else state.selected.delete(hn.id);
+      onSelectionChange();
+      updateHarnessCount();
+    });
+
+    const summary = h('summary', null,
+      h('span', { class: 'harness-name', text: hn.name }),
+      h('span', { class: 'harness-count', text: plural(skills.length, 'skill', 'skills') }),
+      h('span', { class: 'harness-broken st-bad', text: broken ? plural(broken, 'enlace roto', 'enlaces rotos') : '' }),
+      h('span', { class: 'harness-status ' + cls, text: label }));
+
+    const body = h('div', { class: 'harness-body' }, h('div', { class: 'harness-path', text: hn.path }));
+    if (hn.binary_found) body.append(h('div', { class: 'harness-meta', text: 'Binario en ' + hn.binary_found }));
+    if (!hn.dir_exists) body.append(h('div', { class: 'harness-meta', text: 'La carpeta no existe.' }));
+    if (!hn.verified) {
+      body.append(h('div', { class: 'harness-meta st-warn', text: 'Ruta sin verificar' + (hn.note ? ': ' + hn.note : '.') }));
+    } else if (hn.note) {
+      body.append(h('div', { class: 'harness-meta', text: hn.note }));
+    }
+    if (skills.length) {
+      const list = h('ul', { class: 'skill-list' });
+      for (const s of skills) {
+        let detail = KIND_LABELS[s.kind] || s.kind;
+        if (s.kind === 'symlink' && s.link_target) detail += ' hacia ' + s.link_target;
+        if (!s.has_skill_md && s.kind !== 'broken') detail += ', sin SKILL.md';
+        list.append(h('li', { title: s.path }, h('span', { class: 'skill-name', text: s.name }),
+          h('span', { class: 'kind' + (s.kind === 'broken' ? ' st-bad' : ' muted'), text: detail })));
+      }
+      body.append(list);
+    }
+
+    const det = h('details', { class: 'harness-details' }, summary, body);
+    det.open = state.open.has(hn.id);
+    det.addEventListener('toggle', () => {
+      if (det.open) state.open.add(hn.id); else state.open.delete(hn.id);
+    });
+    return h('div', { class: 'harness' }, cb, det);
+  }
+
+  function updateHarnessCount() {
+    const total = state.harnesses.length;
+    const shown = state.harnesses.filter(matchesFilter).length;
+    $('harness-count').textContent = (shown === total ? plural(total, 'harness', 'harnesses') : shown + ' de ' + total) +
+      ' · ' + plural(state.selected.size, 'seleccionado', 'seleccionados');
+  }
+
   function renderHarnesses() {
     const box = $('harness-list');
     box.replaceChildren();
+    $('harness-tools').hidden = !state.harnesses.length;
+    box.classList.toggle('harness-scroll', state.harnesses.length > 0);
     if (!state.harnesses.length) {
       box.append(h('p', { class: 'muted', text: 'No hay harnesses en este alcance. Cambia el alcance, indica la ruta del proyecto o añade una carpeta.' }));
       return;
     }
-    for (const hn of state.harnesses) {
-      const cbId = 'sel-' + hn.id;
-      const skills = hn.skills || [];
-      const broken = skills.filter((s) => s.kind === 'broken').length;
-      const [label, cls] = harnessStatus(hn);
-      const cb = h('input', { type: 'checkbox', id: cbId, disabled: !hn.dir_exists, 'aria-label': 'Incluir ' + hn.name });
-      cb.checked = state.selected.has(hn.id);
-      cb.addEventListener('change', () => {
-        if (cb.checked) state.selected.add(hn.id); else state.selected.delete(hn.id);
-        onSelectionChange();
-      });
-
-      const meta = [plural(skills.length, 'skill', 'skills')];
-      if (broken) meta.push(plural(broken, 'enlace roto', 'enlaces rotos'));
-      if (hn.binary_found) meta.push('binario en ' + hn.binary_found);
-      if (!hn.dir_exists) meta.push('la carpeta no existe');
-
-      const card = h('div', { class: 'harness' },
-        cb,
-        h('label', { class: 'harness-name', for: cbId, text: hn.name }),
-        h('span', { class: 'harness-status ' + cls, text: label }),
-        h('div', { class: 'harness-path', text: hn.path }),
-        h('div', { class: 'harness-meta', text: meta.join(' · ') }),
-      );
-      if (!hn.verified) {
-        card.append(h('div', { class: 'harness-meta st-warn', text: 'Ruta sin verificar' + (hn.note ? ': ' + hn.note : '.') }));
-      } else if (hn.note) {
-        card.append(h('div', { class: 'harness-meta', text: hn.note }));
-      }
-      if (skills.length) {
-        const list = h('ul', { class: 'skill-list' });
-        for (const s of skills) {
-          let detail = KIND_LABELS[s.kind] || s.kind;
-          if (s.kind === 'symlink' && s.link_target) detail += ' hacia ' + s.link_target;
-          if (!s.has_skill_md && s.kind !== 'broken') detail += ', sin SKILL.md';
-          list.append(h('li', { title: s.path }, h('span', { class: 'skill-name', text: s.name }),
-            h('span', { class: 'kind' + (s.kind === 'broken' ? ' st-bad' : ' muted'), text: detail })));
-        }
-        card.append(h('details', null, h('summary', { text: 'Skills (' + skills.length + ')' }), list));
-      }
-      box.append(card);
+    // Detectados primero, luego por nombre: lo relevante queda arriba aunque la lista crezca.
+    const rank = (hn) => (hn.detected ? 0 : hn.dir_exists ? 1 : 2);
+    const shown = state.harnesses.filter(matchesFilter)
+      .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+    if (!shown.length) {
+      box.append(h('p', { class: 'muted harness-empty', text: 'Ningún harness coincide. Cambia la búsqueda o el estado.' }));
     }
+    for (const hn of shown) box.append(harnessRow(hn));
+    updateHarnessCount();
+  }
+
+  function setAllVisible(on) {
+    for (const hn of state.harnesses) {
+      if (!hn.dir_exists || !matchesFilter(hn)) continue;
+      if (on) state.selected.add(hn.id); else state.selected.delete(hn.id);
+    }
+    renderHarnesses();
+    onSelectionChange();
   }
 
   function renderCanonical() {
@@ -467,6 +510,10 @@
     rule.addEventListener('change', invalidatePlan);
     $('custom-form').addEventListener('submit', addCustom);
     $('btn-scan').addEventListener('click', scan);
+    $('harness-query').addEventListener('input', (e) => { state.query = e.target.value; renderHarnesses(); });
+    $('harness-status').addEventListener('change', (e) => { state.status = e.target.value; renderHarnesses(); });
+    $('btn-select-visible').addEventListener('click', () => setAllVisible(true));
+    $('btn-clear-visible').addEventListener('click', () => setAllVisible(false));
     $('btn-plan').addEventListener('click', calcPlan);
     $('btn-apply').addEventListener('click', applyPlan);
     $('btn-shutdown').addEventListener('click', shutdown);

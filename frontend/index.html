@@ -22,7 +22,19 @@
         <h2 id="h-harnesses">Harnesses</h2>
         <button type="button" id="btn-scan">Volver a escanear</button>
       </div>
-      <div id="harness-list" aria-live="polite"></div>
+      <div id="harness-tools" class="harness-tools" hidden>
+        <input id="harness-query" type="search" placeholder="Buscar por nombre o ruta" aria-label="Buscar harness">
+        <select id="harness-status" aria-label="Filtrar por estado">
+          <option value="all">Todos</option>
+          <option value="detected">Detectados</option>
+          <option value="skills">Con skills</option>
+          <option value="selected">Seleccionados</option>
+        </select>
+        <button type="button" id="btn-select-visible">Seleccionar visibles</button>
+        <button type="button" id="btn-clear-visible">Quitar visibles</button>
+        <span id="harness-count" class="muted"></span>
+      </div>
+      <div id="harness-list" class="harness-scroll" aria-live="polite"></div>
 
       <form id="custom-form" class="inline-form" autocomplete="off">
         <h3>Carpeta personalizada</h3>
