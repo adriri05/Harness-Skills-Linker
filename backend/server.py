@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from . import catalog, scanner
+from . import catalog, picker, scanner
 
 HOST = "127.0.0.1"
 MAX_BODY = 1024 * 1024
@@ -241,6 +241,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(self._scan(self._read_json()))
             elif self.command == "POST" and path in ("/api/plan", "/api/apply"):
                 self._json(self._linker_call(path.rsplit("/", 1)[1], self._read_json()))
+            elif self.command == "POST" and path == "/api/pick-folder":
+                self._json(self._pick_folder())
             elif self.command == "POST" and path == "/api/shutdown":
                 self._shutdown()
             else:
@@ -296,6 +298,15 @@ class Handler(BaseHTTPRequestHandler):
             return func(**kwargs).to_dict()
         except (ValueError, KeyError) as exc:
             raise _bad(f"No se pudo completar '{name}': {exc}") from None
+
+    def _pick_folder(self) -> dict:
+        try:
+            return {"path": picker.pick_folder("Carpeta del proyecto")}
+        except picker.PickerUnavailable:
+            raise ApiError(
+                HTTPStatus.NOT_IMPLEMENTED,
+                "Este equipo no puede abrir el selector de carpetas. Escribe la ruta a mano.",
+            ) from None
 
     def _shutdown(self) -> None:
         self._json({"ok": True})

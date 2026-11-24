@@ -33,7 +33,7 @@ Opciones:
 ### Flujo
 
 1. **Harnesses.** La página lista los harnesses detectados y las skills de cada uno. Puedes añadir una carpeta personalizada con su ruta absoluta.
-2. **Alcance.** Elige global de usuario o un directorio de proyecto.
+2. **Alcance.** Elige global de usuario o un directorio de proyecto. Para un proyecto, pulsa **Elegir carpeta** y selecciónala en el diálogo del sistema, o escribe la ruta absoluta. Si el equipo no puede abrir el diálogo (por ejemplo, Linux sin tkinter), escribe la ruta.
 3. **Selección.** Marca los harnesses que quieres conectar y la carpeta canónica, que es la que conserva las skills reales.
 4. **Plan.** Pulsa **Calcular plan** para ver, skill por skill, qué pasaría:
 
@@ -87,6 +87,7 @@ Todas las rutas exigen la cabecera de token de sesión que la página recibe al 
 | `POST /api/scan` | Escanea con alcance, proyecto y carpetas personalizadas. |
 | `POST /api/plan` | Calcula el plan sin modificar el disco. |
 | `POST /api/apply` | Recalcula el plan y lo ejecuta. |
+| `POST /api/pick-folder` | Abre el selector de carpetas del sistema y devuelve `{"path": ...}`, o `null` si se cancela. |
 | `POST /api/shutdown` | Detiene el servidor. |
 
 ## Estructura
@@ -99,6 +100,7 @@ backend/
   scanner.py      Detección de harnesses y lectura de skills
   linker.py       Plan (dry-run) y aplicación de enlaces
   symlinks.py     Creación de symlinks por sistema operativo
+  picker.py       Selector nativo de carpeta (tkinter en subproceso)
   server.py       Servidor HTTP local y API JSON
 frontend/         HTML, CSS y JS sin framework
 tests/            Tests unitarios, de API y end-to-end

@@ -17,10 +17,10 @@
   };
 
   const RULES = [
-    ['none', 'Sin regla (marcar conflictos)'],
+    ['none', 'Solo marcar conflictos'],
     ['prefer_canonical', 'Preferir la carpeta canónica'],
-    ['move_to_canonical', 'Mover duplicadas a la carpeta canónica'],
-    ['move_all_to_canonical', 'Mover todas las skills a la carpeta canónica'],
+    ['move_to_canonical', 'Mover duplicadas a la canónica'],
+    ['move_all_to_canonical', 'Mover todas a la canónica'],
   ];
 
   const ACTION_LABELS = {
@@ -69,12 +69,12 @@
         body: JSON.stringify(body || {}),
       });
     } catch (e) {
-      throw new Error('No se pudo conectar con el servidor local. Comprueba que sigue en marcha y recarga la página.');
+      throw new Error('No hay conexión con el servidor local. Comprueba que sigue abierto y recarga la página.');
     }
     let data = null;
     try { data = await res.json(); } catch (e) { /* cuerpo no JSON */ }
     if (!res.ok) {
-      throw new Error((data && data.error) || 'El servidor respondió con el error ' + res.status + '.');
+      throw new Error((data && data.error) || 'Error del servidor (' + res.status + ').');
     }
     return data;
   }
@@ -132,7 +132,7 @@
     const box = $('harness-list');
     box.replaceChildren();
     if (!state.harnesses.length) {
-      box.append(h('p', { class: 'muted', text: 'No hay harnesses para este alcance. Cambia el alcance, indica la ruta del proyecto o añade una carpeta personalizada.' }));
+      box.append(h('p', { class: 'muted', text: 'No hay harnesses en este alcance. Cambia el alcance, indica la ruta del proyecto o añade una carpeta.' }));
       return;
     }
     for (const hn of state.harnesses) {
@@ -206,7 +206,7 @@
     if (state.scope === 'project' && !$('project-dir').value.trim()) {
       state.harnesses = [];
       renderHarnesses();
-      showBanner('Indica la ruta del proyecto para escanear su alcance.', true);
+      showBanner('Indica la ruta del proyecto.', true);
       return;
     }
     showBanner('');
@@ -244,12 +244,12 @@
     const err = $('custom-error');
     err.hidden = true;
     if (!name || !path) {
-      err.textContent = 'Completa el nombre y la ruta de la carpeta.';
+      err.textContent = 'Falta el nombre o la ruta.';
       err.hidden = false;
       return;
     }
     if (!isAbsolute(path)) {
-      err.textContent = 'La ruta debe ser absoluta, por ejemplo /home/usuario/skills o C:\\skills.';
+      err.textContent = 'Usa una ruta absoluta, como /home/usuario/skills o C:\\skills.';
       err.hidden = false;
       return;
     }
@@ -272,7 +272,7 @@
     updateApply();
     const hint = $('apply-hint');
     if (state.planStale) {
-      hint.textContent = 'La selección cambió después de calcular el plan. Calcula el plan de nuevo.';
+      hint.textContent = 'La selección cambió. Calcula el plan de nuevo.';
       hint.hidden = false;
     }
   }
@@ -287,9 +287,9 @@
     let reason = '';
     if (state.stopped) reason = '';
     else if (!state.plan) reason = '';
-    else if (state.planStale) reason = 'La selección cambió después de calcular el plan. Calcula el plan de nuevo.';
-    else if (!state.plan.summary.create_link) reason = 'El plan no tiene enlaces por crear.';
-    else if (unresolvedConflicts(state.plan)) reason = plural(unresolvedConflicts(state.plan), 'conflicto sin resolver', 'conflictos sin resolver') + '. Elige una regla de conflicto y calcula el plan de nuevo.';
+    else if (state.planStale) reason = 'La selección cambió. Calcula el plan de nuevo.';
+    else if (!state.plan.summary.create_link) reason = 'No hay enlaces que crear.';
+    else if (unresolvedConflicts(state.plan)) reason = plural(unresolvedConflicts(state.plan), 'conflicto sin resolver', 'conflictos sin resolver') + '. Elige una regla y calcula el plan de nuevo.';
     btn.disabled = state.busy || state.stopped || !state.plan || !!reason;
     hint.textContent = reason;
     hint.hidden = !reason;
@@ -314,7 +314,7 @@
     const plan = state.plan;
     if (!plan) return;
     if (!plan.actions.length) {
-      box.append(h('p', { class: 'muted', text: 'No hay skills que enlazar entre los harnesses seleccionados. Selecciona al menos dos harnesses con skills.' }));
+      box.append(h('p', { class: 'muted', text: 'No hay skills que enlazar. Selecciona al menos dos harnesses con skills.' }));
       return;
     }
     const sum = plan.summary;
@@ -340,7 +340,7 @@
     }
     const rule = $('conflict-rule').value;
     if (['prefer_canonical', 'move_to_canonical', 'move_all_to_canonical'].includes(rule) && !$('canonical').value) {
-      showBanner('La regla elegida necesita una carpeta canónica. Selecciónala o cambia la regla.');
+      showBanner('Esta regla necesita una carpeta canónica. Elige una o cambia la regla.');
       return;
     }
     showBanner('');
@@ -362,8 +362,8 @@
 
   function confirmMove() {
     const dlg = $('confirm-dialog');
-    $('confirm-text').textContent = 'Las skills que son carpetas reales se moverán a ' + $('canonical').value +
-      ' y se sustituirán por enlaces. Comprueba el plan antes de continuar.';
+    $('confirm-text').textContent = 'Las carpetas reales se moverán a ' + $('canonical').value +
+      ' y se sustituirán por enlaces.';
     if (typeof dlg.showModal !== 'function') return Promise.resolve(window.confirm($('confirm-text').textContent));
     return new Promise((resolve) => {
       dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok'), { once: true });
@@ -400,7 +400,7 @@
       h('li', { class: sum.error ? 'st-bad' : '', text: 'Con error: ' + (sum.error || 0) }),
       h('li', { text: 'Omitidos: ' + (sum.skipped || 0) })));
     if (!results.length) {
-      box.append(h('p', { class: 'muted', text: 'El servidor no aplicó ninguna acción.' }));
+      box.append(h('p', { class: 'muted', text: 'No se aplicó ninguna acción.' }));
     } else {
       const rows = results.map((r) => h('tr', null,
         h('td', { class: r.status === 'ok' ? 'st-ok' : r.status === 'error' ? 'st-bad' : 'muted', text: r.status === 'ok' ? 'Correcto' : r.status === 'error' ? 'Error' : 'Omitido' }),
@@ -413,7 +413,7 @@
         h('tbody', null, ...rows)));
     }
     if (sum.error) {
-      box.append(h('p', { class: 'st-bad', text: 'Algunos enlaces fallaron. Revisa el detalle de cada fila; en Windows crear enlaces simbólicos requiere el Modo Desarrollador o permisos de administrador.' }));
+      box.append(h('p', { class: 'st-bad', text: 'Algunos enlaces fallaron. En Windows, crear enlaces simbólicos requiere el Modo Desarrollador o permisos de administrador.' }));
     }
     sec.hidden = false;
     sec.scrollIntoView({ block: 'nearest' });
@@ -421,7 +421,7 @@
 
   // ---------- servidor ----------
   async function shutdown() {
-    if (!window.confirm('Se detendrá el servidor local. ¿Continuar?')) return;
+    if (!window.confirm('¿Detener el servidor local?')) return;
     try {
       await api('/api/shutdown', {});
     } catch (e) {
@@ -430,7 +430,24 @@
     }
     state.stopped = true;
     for (const el of document.querySelectorAll('button, input, select')) el.disabled = true;
-    showBanner('El servidor se detuvo. Ya puedes cerrar esta pestaña.', true);
+    showBanner('Servidor detenido. Puedes cerrar la pestaña.', true);
+  }
+
+  async function pickFolder() {
+    const btn = $('btn-pick-folder');
+    btn.disabled = true;
+    showBanner('');
+    try {
+      const { path } = await api('/api/pick-folder', {});
+      if (!path) return;
+      $('project-dir').value = path;
+      state.selected = new Set();
+      scan();
+    } catch (e) {
+      showBanner(e.message);
+    } finally {
+      btn.disabled = state.stopped;
+    }
   }
 
   // ---------- arranque ----------
@@ -445,6 +462,7 @@
       scan();
     }));
     $('project-dir').addEventListener('change', () => { state.selected = new Set(); scan(); });
+    $('btn-pick-folder').addEventListener('click', pickFolder);
     $('canonical').addEventListener('change', invalidatePlan);
     rule.addEventListener('change', invalidatePlan);
     $('custom-form').addEventListener('submit', addCustom);
