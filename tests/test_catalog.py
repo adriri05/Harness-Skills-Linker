@@ -37,6 +37,40 @@ class CatalogTest(unittest.TestCase):
         self.assertEqual(h.project_path("/w"), self.by_id["agents"].project_path("/w"))
         self.assertEqual(h.binaries, ("agy",))
 
+    def test_github_copilot_paths(self):
+        h = self.by_id["github-copilot"]
+        self.assertEqual(h.global_path(), Path.home() / ".copilot" / "skills")
+        self.assertEqual(h.project_path("/w"), Path("/w") / ".github" / "skills")
+        self.assertEqual(h.binaries, ("copilot",))
+
+    def test_cline_paths(self):
+        h = self.by_id["cline"]
+        self.assertEqual(h.global_path(), Path.home() / ".cline" / "skills")
+        self.assertEqual(h.project_path("/w"), Path("/w") / ".cline" / "skills")
+
+    def test_kiro_paths(self):
+        h = self.by_id["kiro"]
+        self.assertEqual(h.global_path(), Path.home() / ".kiro" / "skills")
+        self.assertEqual(h.project_path("/w"), Path("/w") / ".kiro" / "skills")
+
+    def test_amp_paths(self):
+        h = self.by_id["amp"]
+        self.assertEqual(h.global_path(), Path.home() / ".config" / "agents" / "skills")
+        self.assertEqual(h.project_path("/w"), self.by_id["agents"].project_path("/w"))
+        self.assertEqual(h.binaries, ("amp",))
+
+    def test_goose_shares_agents_folder(self):
+        h = self.by_id["goose"]
+        self.assertEqual(h.global_path(), self.by_id["agents"].global_path())
+        self.assertEqual(h.project_path("/w"), self.by_id["agents"].project_path("/w"))
+        self.assertEqual(h.binaries, ("goose",))
+
+    def test_every_entry_cites_an_official_source(self):
+        for h in self.by_id.values():
+            with self.subTest(harness=h.id):
+                self.assertTrue(h.source and h.source.startswith("https://"))
+                self.assertTrue(h.note)
+
     def test_all_entries_verified(self):
         self.assertEqual([h.id for h in self.by_id.values() if not h.verified], [])
 

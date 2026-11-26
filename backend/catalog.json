@@ -85,6 +85,62 @@
       "verified": true,
       "source": "https://antigravity.google/docs/skills",
       "note": "Oficial: global ~/.gemini/config/skills y proyecto .agents/skills, la misma carpeta que agents y codex. Siguen admitidas las rutas anteriores ~/.gemini/antigravity/skills y .agent/skills, no gestionadas aquí. El CLI (agy) lee además ~/.gemini/antigravity-cli/skills y ~/.gemini/skills, que la app no lee."
+    },
+    {
+      "id": "github-copilot",
+      "name": "GitHub Copilot",
+      "global": "~/.copilot/skills",
+      "project": ".github/skills",
+      "binaries": [
+        "copilot"
+      ],
+      "verified": true,
+      "source": "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills",
+      "note": "Oficial: personales en ~/.copilot/skills y de proyecto en .github/skills. También lee ~/.agents/skills en global, y .claude/skills y .agents/skills en proyecto."
+    },
+    {
+      "id": "cline",
+      "name": "Cline",
+      "global": "~/.cline/skills",
+      "project": ".cline/skills",
+      "binaries": [],
+      "verified": true,
+      "source": "https://docs.cline.bot/customization/skills",
+      "note": "Oficial: global ~/.cline/skills y proyecto .cline/skills. En proyecto también lee .clinerules/skills y .claude/skills. Si una skill existe en ambos sitios, gana la global."
+    },
+    {
+      "id": "kiro",
+      "name": "Kiro",
+      "global": "~/.kiro/skills",
+      "project": ".kiro/skills",
+      "binaries": [],
+      "verified": true,
+      "source": "https://kiro.dev/docs/skills/",
+      "note": "Oficial: global ~/.kiro/skills y espacio de trabajo .kiro/skills. El CLI usa las mismas carpetas. Con el mismo nombre gana la skill del espacio de trabajo."
+    },
+    {
+      "id": "amp",
+      "name": "Amp",
+      "global": "~/.config/agents/skills",
+      "project": ".agents/skills",
+      "binaries": [
+        "amp"
+      ],
+      "verified": true,
+      "source": "https://ampcode.com/manual/agent-skills",
+      "note": "Oficial: global ~/.config/agents/skills (donde instala amp skill add --global) y proyecto .agents/skills, la misma carpeta que agents y codex. También lee ~/.agents/skills, ~/.config/amp/skills y .claude/skills, no gestionadas aquí."
+    },
+    {
+      "id": "goose",
+      "name": "Goose",
+      "global": "~/.agents/skills",
+      "project": ".agents/skills",
+      "binaries": [
+        "goose"
+      ],
+      "verified": true,
+      "source": "https://goose-docs.ai/docs/guides/context-engineering/using-skills",
+      "note": "Oficial: global ~/.agents/skills y proyecto .agents/skills, las mismas carpetas que agents y codex. También lee .goose/skills y .claude/skills, no gestionadas aquí."
     }
   ]
 }
