@@ -1,7 +1,9 @@
 import http.client
 import json
+import socket
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -116,6 +118,24 @@ class ApiTest(unittest.TestCase):
                 self.assertEqual(self.post(path, {}, token=False)[0], 401)
                 self.assertEqual(self.post(path, {}, headers={TOKEN_HEADER: "mal"})[0], 401)
         self.assertTrue(self.thread.is_alive())
+
+    def test_rejected_post_still_delivers_the_response_if_the_body_arrives_late(self):
+        # http.client envía cabeceras y cuerpo por separado. Si el servidor responde 401 y cierra
+        # antes de que llegue el cuerpo, Windows resetea la conexión y el cliente pierde la respuesta.
+        for token in ("mal", None):
+            with self.subTest(token=token):
+                headers = (
+                    f"POST /api/apply HTTP/1.1\r\nHost: 127.0.0.1:{self.server.port}\r\n"
+                    "Content-Type: application/json\r\nContent-Length: 2\r\n"
+                    + (f"{TOKEN_HEADER}: {token}\r\n" if token else "")
+                    + "\r\n"
+                )
+                with socket.create_connection(("127.0.0.1", self.server.port), timeout=5) as conn:
+                    conn.sendall(headers.encode())
+                    time.sleep(0.2)
+                    conn.sendall(b"{}")
+                    status_line = conn.makefile("rb").readline()
+                self.assertIn(b" 401 ", status_line)
 
     def test_post_rejects_foreign_origin_and_host(self):
         for path in ("/api/scan", "/api/shutdown"):
