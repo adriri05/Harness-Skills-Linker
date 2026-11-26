@@ -32,7 +32,12 @@ class Harness:
         return Path(self.global_template).expanduser()
 
     def project_path(self, project_dir: str | os.PathLike[str]) -> Path:
-        """Carpeta de skills dentro de un directorio de proyecto."""
+        """Carpeta de skills dentro de un directorio de proyecto.
+
+        Una carpeta personalizada no tiene plantilla de proyecto: su ruta es la misma en cualquier alcance.
+        """
+        if not self.project_template:
+            return self.global_path()
         return Path(project_dir) / self.project_template
 
 

@@ -108,8 +108,6 @@ def _harness_dir(h: Harness, scope: str, project_dir: str | None) -> Path:
     if scope == "project":
         if not project_dir:
             raise ValueError("El alcance 'project' necesita project_dir")
-        if h.project_template == "":  # carpeta personalizada: misma ruta en cualquier alcance
-            return h.global_path()
         return h.project_path(project_dir)
     if scope != "global":
         raise ValueError(f"Alcance desconocido: {scope}")
