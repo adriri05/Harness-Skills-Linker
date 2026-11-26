@@ -63,6 +63,21 @@ class ApiTest(unittest.TestCase):
         self.assertTrue(mine["dir_exists"])
         self.assertEqual([s["name"] for s in mine["skills"]], ["demo"])
 
+    def test_scan_project_scope_keeps_custom_folder_path(self):
+        skill = self.tmp / "mis-skills" / "demo"
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text("x", encoding="utf-8")
+        project = self.tmp / "proyecto"
+        project.mkdir()
+        custom = [{"id": "mio", "name": "Mío", "path": str(self.tmp / "mis-skills")}]
+        status, body = self.post(
+            "/api/scan", {"scope": "project", "project_dir": str(project), "custom": custom}
+        )
+        self.assertEqual(status, 200)
+        mine = next(h for h in body["harnesses"] if h["id"] == "mio")
+        self.assertEqual(mine["path"], str(self.tmp / "mis-skills"))
+        self.assertEqual([s["name"] for s in mine["skills"]], ["demo"])
+
     def test_scan_project_scope(self):
         status, body = self.post("/api/scan", {"scope": "project", "project_dir": str(self.tmp)})
         self.assertEqual(status, 200)

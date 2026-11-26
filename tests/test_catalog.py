@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from backend.catalog import load_catalog
+from backend.catalog import Harness, load_catalog
 
 
 class CatalogTest(unittest.TestCase):
@@ -43,6 +43,12 @@ class CatalogTest(unittest.TestCase):
     def test_project_path(self):
         path = self.by_id["opencode"].project_path("/work/app")
         self.assertEqual(path, Path("/work/app") / ".opencode" / "skills")
+
+    def test_custom_folder_has_the_same_path_in_any_scope(self):
+        custom = Harness(id="mio", name="Mío", global_template="/mis/skills", project_template="",
+                         binaries=(), verified=False)
+        self.assertEqual(custom.project_path("/work/app"), Path("/mis/skills"))
+        self.assertEqual(custom.project_path("/work/app"), custom.global_path())
 
 
 if __name__ == "__main__":

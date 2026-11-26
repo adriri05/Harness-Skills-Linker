@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from backend.catalog import Harness
@@ -114,6 +115,16 @@ class ScannerTest(unittest.TestCase):
         make_skill(self.tmp / ".fake" / "skills", "proj")
         scan = scan_harness(fake_harness(), "project", self.tmp)
         self.assertEqual([s.name for s in scan.skills], ["proj"])
+
+    def test_project_scope_custom_folder_scans_its_own_path(self):
+        mine = self.tmp / "mis-skills"
+        make_skill(mine, "demo")
+        project = self.tmp / "proyecto"
+        make_skill(project, "ajena")  # una skill en la raíz del proyecto no es de la carpeta personalizada
+        custom = replace(fake_harness(global_template=str(mine)), project_template="")
+        scan = scan_harness(custom, "project", project)
+        self.assertEqual(scan.path, str(mine))
+        self.assertEqual([s.name for s in scan.skills], ["demo"])
 
     def test_project_scope_requires_dir(self):
         with self.assertRaises(ValueError):
