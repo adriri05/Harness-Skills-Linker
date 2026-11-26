@@ -8,6 +8,7 @@ Cada harness lee sus skills de una carpeta distinta (`~/.claude/skills`, `~/.cur
 
 - Corre solo en tu máquina: el servidor escucha en `127.0.0.1` y exige un token de sesión en cada llamada a la API.
 - No destructivo: nunca borra ni sobrescribe una carpeta real con contenido. Antes de sustituir una carpeta real se hace backup en `.linker-backup`.
+- Reversible: cada aplicación queda registrada y la última se puede deshacer.
 - Siempre muestra un plan antes de tocar el disco.
 
 ## Requisitos
@@ -45,6 +46,21 @@ Opciones:
    | Omitido | Se deja como está: conflicto pendiente, enlace roto, sin origen válido o riesgo de bucle. |
 
 5. **Aplicar.** **Aplicar enlaces** ejecuta el plan y muestra el resultado de cada acción.
+6. **Deshacer.** Tras aplicar aparece **Última aplicación**. **Calcular reversión** muestra qué se quitará y qué se restaurará, y **Deshacer aplicación** lo ejecuta.
+
+### Deshacer una aplicación
+
+Cada aplicación que cambia algo deja un registro en `~/.harness-skills-linker/history.json` (la variable `HARNESS_LINKER_HOME` cambia esa carpeta). Se conservan las últimas 20 y solo se puede deshacer la más reciente. Los backups de las aplicaciones antiguas siguen en disco.
+
+Deshacer quita los enlaces creados, recrea los que se reapuntaron, restaura las carpetas desde `.linker-backup` y devuelve a su harness las carpetas movidas a la canónica. Las carpetas que la aplicación creó y quedan vacías se eliminan. Nunca borra ni sobrescribe contenido que no creó la herramienta:
+
+| Situación | Resultado |
+| --- | --- |
+| El enlace ya no existe, apunta a otro sitio o ahora es una carpeta | Omitido y se avisa. No se toca. |
+| El destino de la restauración existe y tiene contenido | Conflicto. No se sobrescribe y la entrada sigue registrada para reintentarlo. |
+| El destino de la restauración es una carpeta vacía | Se sustituye por la carpeta restaurada. |
+| El backup se borró a mano | Omitido y se avisa. El enlace se deja como está. |
+| La carpeta movida ya no está en la canónica | Omitido y se avisa. |
 
 ### Reglas de conflicto
 
@@ -87,7 +103,10 @@ Todas las rutas exigen la cabecera de token de sesión que la página recibe al 
 | `GET /api/harnesses` | Escanea el alcance global. |
 | `POST /api/scan` | Escanea con alcance, proyecto y carpetas personalizadas. |
 | `POST /api/plan` | Calcula el plan sin modificar el disco. |
-| `POST /api/apply` | Recalcula el plan y lo ejecuta. |
+| `POST /api/apply` | Recalcula el plan y lo ejecuta. Devuelve `application_id` si cambió algo. |
+| `GET /api/history` | Última aplicación registrada: `{"last": {id, timestamp, scope, project_dir, entries}}` o `{"last": null}`. |
+| `POST /api/undo-plan` | Plan de reversión de la última aplicación, sin tocar el disco. Cuerpo opcional `{"id": ...}`. |
+| `POST /api/undo` | Deshace la última aplicación. Con `id` que no es la última responde 409; sin aplicaciones, 404. |
 | `POST /api/pick-folder` | Abre el selector de carpetas del sistema y devuelve `{"path": ...}`, o `null` si se cancela. |
 | `POST /api/shutdown` | Detiene el servidor. |
 
@@ -99,7 +118,8 @@ backend/
   catalog.json    Catálogo de harnesses y rutas
   catalog.py      Carga del catálogo y expansión de rutas
   scanner.py      Detección de harnesses y lectura de skills
-  linker.py       Plan (dry-run) y aplicación de enlaces
+  linker.py       Plan (dry-run), aplicación de enlaces y deshacer
+  history.py      Registro de aplicaciones en el home del usuario
   symlinks.py     Creación de symlinks por sistema operativo
   picker.py       Selector nativo de carpeta (tkinter en subproceso)
   server.py       Servidor HTTP local y API JSON

@@ -1,6 +1,7 @@
-"""Plan dry-run (issue #5) y aplicación de enlaces (issues #6, #7, #8).
+"""Plan dry-run (issue #5), aplicación de enlaces (issues #6, #7, #8) y deshacer (issue #32).
 
-`build_plan` solo lee el disco. `apply` recalcula el plan y lo ejecuta.
+`build_plan` solo lee el disco. `apply` recalcula el plan, lo ejecuta y registra
+lo hecho en `history`. `undo_plan` y `undo` revierten la última aplicación.
 Nunca se borra ni se sobrescribe una carpeta real: solo se sustituyen enlaces,
 y con `move_to_canonical` las carpetas reales se mueven tras hacer backup.
 """
@@ -14,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from . import history
 from .catalog import Harness, load_catalog
 from .scanner import Skill, scan_skill_dir
 from .symlinks import LinkError, can_create_symlinks, is_link, make_dir_link, remove_link
@@ -74,12 +76,14 @@ class Plan:
 @dataclass
 class ApplyResult:
     results: list[dict] = field(default_factory=list)
+    application_id: Optional[str] = None  # None si no cambió nada en el disco
 
     def to_dict(self) -> dict:
         summary = {"ok": 0, "error": 0, "skipped": 0}
         for r in self.results:
             summary[r["status"]] += 1
-        return {"results": list(self.results), "summary": summary}
+        return {"results": list(self.results), "summary": summary,
+                "application_id": self.application_id}
 
 
 @dataclass
@@ -325,17 +329,32 @@ def apply(
 ) -> ApplyResult:
     plan = build_plan(harness_ids, scope, project_dir, canonical, conflict_rule, custom)
     result = ApplyResult()
+    entries: list[dict] = []
     for a in plan.actions:
         if a.action == "create_link":
+            entry = {"skill": a.skill, "harness_id": a.harness_id}
             try:
-                status, message = _execute(a)
+                status, message = _execute(a, entry)
             except LinkError as exc:
                 status, message = "error", str(exc)
             except OSError as exc:
                 status, message = "error", f"{type(exc).__name__}: {exc}"
+            if entry.get("changed"):  # también un fallo a medias deja algo que revertir
+                entries.append(entry)
         else:
             status, message = "skipped", a.reason
         result.results.append({**a.to_dict(), "status": status, "message": message})
+    if entries:
+        result.application_id = history.new_id()
+        history.record({
+            "id": result.application_id,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "scope": scope,
+            "project_dir": project_dir,
+            "canonical": plan.canonical,
+            "conflict_rule": conflict_rule,
+            "entries": entries,
+        })
     return result
 
 
@@ -351,9 +370,27 @@ def _backup_path(target: Path) -> Path:
     return folder / target.name
 
 
-def _execute(a: PlanAction) -> tuple[str, str]:
+def _missing_dirs(path: Path) -> list[str]:
+    """Carpetas que habría que crear para que `path` exista, de la más profunda a la más alta."""
+    missing: list[str] = []
+    current = path
+    while not os.path.lexists(current) and current != current.parent:
+        missing.append(str(current))
+        current = current.parent
+    return missing
+
+
+def _raw_link(path: Path) -> str:
+    raw = os.readlink(path)
+    return raw[4:] if raw.startswith("\\\\?\\") else raw  # prefijo \\?\ de las junctions
+
+
+def _execute(a: PlanAction, entry: dict | None = None) -> tuple[str, str]:
+    """Ejecuta una acción. Si se pasa `entry`, anota en él lo necesario para deshacerla."""
+    entry = entry if entry is not None else {}
     target, src = Path(a.target), a.source
     notes: list[str] = []
+    entry.update(target=a.target, source=src, link_created=False, created_dirs=[])
 
     if a.move_to:
         if is_link(target) or not target.is_dir():
@@ -363,8 +400,11 @@ def _execute(a: PlanAction) -> tuple[str, str]:
             return "error", f"{dest} ya existe; no se sobrescribe."
         backup = _backup_path(target)
         shutil.copytree(target, backup, symlinks=True)
+        entry.update(backup=str(backup), changed=True)
+        entry["created_dirs"] += _missing_dirs(dest.parent)
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(target), str(dest))
+        entry["moved_to"] = str(dest)
         notes.append(f"movida a {dest}, backup en {backup}")
     elif not src or not os.path.isdir(src):
         return "error", f"El origen {src} no existe."
@@ -375,16 +415,217 @@ def _execute(a: PlanAction) -> tuple[str, str]:
                 return "skipped", "Ya enlazado."
             if not a.replace_link:
                 return "error", "Ya hay un enlace distinto. No se sustituye."
+            entry["previous_link"] = _raw_link(target)
             remove_link(target)
+            entry["changed"] = True
         elif target.is_dir() and a.backup:
             backup = _backup_path(target)
             os.rename(target, backup)
+            entry.update(backup=str(backup), changed=True)
             notes.append(f"backup en {backup}")
         else:
             return "error", "Ya hay una carpeta real o un fichero. No se sobrescribe."
 
+    entry["created_dirs"] += _missing_dirs(target.parent)
     target.parent.mkdir(parents=True, exist_ok=True)
     kind = make_dir_link(target, src)
+    entry.update(kind=kind, link_created=True, changed=True)
     notes.append(f"{kind} creado")
     text = "; ".join(notes)
     return "ok", text[0].upper() + text[1:] + "."
+
+
+# -------------------------------------------------------------------- deshacer
+
+UNDO_ACTIONS = ("remove_link", "restore", "conflict", "skipped")
+
+
+class UndoError(Exception):
+    """No se puede deshacer. `code` es 'none' (sin historial) o 'not_last'."""
+
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+
+
+@dataclass
+class UndoAction:
+    entry: dict
+    action: str
+    reason: str
+
+    def to_dict(self) -> dict:
+        e = self.entry
+        return {"skill": e["skill"], "harness_id": e["harness_id"], "target": e["target"],
+                "action": self.action, "reason": self.reason}
+
+
+@dataclass
+class UndoPlan:
+    application: dict
+    actions: list[UndoAction] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        counts = {a: 0 for a in UNDO_ACTIONS}
+        for a in self.actions:
+            counts[a.action] += 1
+        return {"application": history.summarize(self.application),
+                "actions": [a.to_dict() for a in self.actions],
+                "summary": counts, "warnings": []}
+
+
+@dataclass
+class UndoResult:
+    application_id: str
+    results: list[dict] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        summary = {"ok": 0, "error": 0, "skipped": 0, "conflict": 0}
+        for r in self.results:
+            summary[r["status"]] += 1
+        return {"application_id": self.application_id, "results": list(self.results),
+                "summary": summary}
+
+
+def _is_empty_dir(path: Path) -> bool:
+    return not is_link(path) and path.is_dir() and not any(path.iterdir())
+
+
+def _restores(e: dict) -> bool:
+    return bool(e.get("backup") or e.get("moved_to") or e.get("previous_link"))
+
+
+def _inspect_undo(e: dict) -> UndoAction:
+    """Decide qué haría deshacer esta entrada, sin tocar el disco."""
+    target = Path(e["target"])
+    backup = e.get("backup")
+    where = f" El backup sigue en {backup}." if backup and os.path.lexists(backup) else ""
+
+    if e.get("link_created"):
+        if not os.path.lexists(target):
+            return UndoAction(e, "skipped", "El enlace ya no existe; no se toca." + where)
+        if is_link(target):
+            if _norm(str(target)) != _norm(e["source"]):
+                return UndoAction(e, "skipped",
+                                  f"El enlace apunta ahora a {_norm(str(target))}; no se toca." + where)
+        elif not _restores(e):
+            return UndoAction(e, "skipped", "Ya no es un enlace; no se toca.")
+        elif not _is_empty_dir(target):
+            return UndoAction(e, "conflict",
+                              "Ya existe una carpeta o un fichero con contenido en el destino; no se sobrescribe." + where)
+    elif os.path.lexists(target) and not _is_empty_dir(target):
+        return UndoAction(e, "conflict",
+                          "El destino ya existe y tiene contenido; no se sobrescribe." + where)
+
+    if e.get("moved_to"):
+        dest = Path(e["moved_to"])
+        if is_link(dest) or not dest.is_dir():
+            return UndoAction(e, "skipped",
+                              f"La carpeta movida ya no está en {dest}; no se toca." + where)
+        return UndoAction(e, "restore", f"Quita el enlace y devuelve la carpeta desde {dest}.")
+    if backup:
+        if not os.path.lexists(backup):
+            return UndoAction(e, "skipped",
+                              f"El backup {backup} ya no existe y no se puede restaurar. El enlace se deja como está.")
+        return UndoAction(e, "restore", f"Quita el enlace y restaura la carpeta desde {backup}.")
+    if e.get("previous_link"):
+        return UndoAction(e, "restore", f"Quita el enlace y recrea el anterior hacia {e['previous_link']}.")
+    return UndoAction(e, "remove_link", "Quita el enlace creado.")
+
+
+def _tidy_backup_dirs(backup: Path) -> None:
+    for folder in (backup.parent, backup.parent.parent):
+        if folder.name != BACKUP_DIR and folder.parent.name != BACKUP_DIR:
+            return
+        try:
+            folder.rmdir()
+        except OSError:
+            return
+
+
+def _rmdir_if_empty(paths: list[str]) -> None:
+    for p in paths:
+        try:
+            os.rmdir(p)
+        except OSError:
+            pass
+
+
+def _restore_link(target: Path, raw: str) -> None:
+    dest = raw if os.path.isabs(raw) else os.path.join(target.parent, raw)
+    try:
+        os.symlink(raw, target, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        make_dir_link(target, dest)
+
+
+def _run_undo(ua: UndoAction) -> tuple[str, str]:
+    e = ua.entry
+    if ua.action in ("skipped", "conflict"):
+        return ua.action, ua.reason
+    target = Path(e["target"])
+    notes: list[str] = []
+
+    if e.get("link_created") and is_link(target):
+        remove_link(target)
+        notes.append("enlace quitado")
+    elif _is_empty_dir(target):
+        os.rmdir(target)
+    if os.path.lexists(target):
+        return "conflict", f"{target} sigue ocupado; no se sobrescribe."
+
+    backup = e.get("backup")
+    if e.get("moved_to"):
+        shutil.move(e["moved_to"], str(target))
+        notes.append(f"carpeta devuelta desde {e['moved_to']}")
+        if backup and os.path.lexists(backup) and Path(backup).parent.parent.name == BACKUP_DIR:
+            shutil.rmtree(backup)  # copia de seguridad que creó la propia herramienta
+            _tidy_backup_dirs(Path(backup))
+        elif backup:
+            notes.append(f"el backup {backup} ya no existía")
+    elif backup:
+        os.rename(backup, target)
+        _tidy_backup_dirs(Path(backup))
+        notes.append(f"carpeta restaurada desde {backup}")
+    elif e.get("previous_link"):
+        _restore_link(target, e["previous_link"])
+        notes.append("enlace anterior recreado")
+
+    _rmdir_if_empty(e.get("created_dirs", []))
+    text = "; ".join(notes) or "Sin cambios."
+    return "ok", text[0].upper() + text[1:] + "."
+
+
+def _application_to_undo(application_id: str | None) -> dict:
+    app = history.last()
+    if app is None:
+        raise UndoError("none", "No hay ninguna aplicación que deshacer.")
+    if application_id is not None and application_id != app["id"]:
+        raise UndoError("not_last", "Solo se puede deshacer la última aplicación. Vuelve a cargar el plan.")
+    return app
+
+
+def undo_plan(application_id: str | None = None) -> UndoPlan:
+    """Qué haría deshacer la última aplicación. Solo lee el disco."""
+    app = _application_to_undo(application_id)
+    plan = UndoPlan(app)
+    plan.actions = [_inspect_undo(e) for e in reversed(app["entries"])]
+    return plan
+
+
+def undo(application_id: str | None = None) -> UndoResult:
+    """Deshace la última aplicación. Lo que no se puede revertir se deja y se avisa."""
+    app = _application_to_undo(application_id)
+    result = UndoResult(app["id"])
+    pending: list[dict] = []
+    for e in reversed(app["entries"]):
+        ua = _inspect_undo(e)
+        try:
+            status, message = _run_undo(ua)
+        except (OSError, shutil.Error) as exc:
+            status, message = "error", f"{type(exc).__name__}: {exc}"
+        if status in ("conflict", "error"):
+            pending.append(e)  # sigue registrada para reintentar tras resolverlo a mano
+        result.results.append({**ua.to_dict(), "status": status, "message": message})
+    history.replace_last(app["id"], list(reversed(pending)))
+    return result

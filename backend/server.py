@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from . import catalog, picker, scanner
+from . import catalog, history, linker, picker, scanner
 
 HOST = "127.0.0.1"
 MAX_BODY = 1024 * 1024
@@ -222,13 +222,35 @@ class Handler(BaseHTTPRequestHandler):
     do_HEAD = do_GET
 
     def do_POST(self) -> None:
-        if not self._guard():
+        self._body_read = False
+        try:
+            if not self._guard():
+                return
+            url = urlsplit(self.path)
+            if not url.path.startswith("/api/"):
+                self._error(HTTPStatus.METHOD_NOT_ALLOWED, "Método no permitido")
+                return
+            self._api(url.path)
+        finally:
+            if not self._body_read:
+                self._discard_body()
+
+    def _discard_body(self) -> None:
+        """Lee el cuerpo que no se usó antes de cerrar.
+
+        Si el cliente aún envía el cuerpo cuando el servidor ya respondió y cerró, Windows
+        resetea la conexión y el cliente pierde la respuesta (WinError 10053).
+        Un cuerpo declarado por encima de MAX_BODY no se lee: se rechaza por la cabecera.
+        """
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
             return
-        url = urlsplit(self.path)
-        if not url.path.startswith("/api/"):
-            self._error(HTTPStatus.METHOD_NOT_ALLOWED, "Método no permitido")
-            return
-        self._api(url.path)
+        if 0 < length <= MAX_BODY:
+            try:
+                self.rfile.read(length)
+            except OSError:
+                pass
 
     def _api(self, path: str) -> None:
         if not self._token_ok(self.headers.get(TOKEN_HEADER)):
@@ -241,6 +263,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(self._scan(self._read_json()))
             elif self.command == "POST" and path in ("/api/plan", "/api/apply"):
                 self._json(self._linker_call(path.rsplit("/", 1)[1], self._read_json()))
+            elif self.command == "GET" and path == "/api/history":
+                self._json({"last": history.summarize(history.last())})
+            elif self.command == "POST" and path in ("/api/undo-plan", "/api/undo"):
+                self._json(self._undo_call(path == "/api/undo", self._read_json()))
             elif self.command == "POST" and path == "/api/pick-folder":
                 self._json(self._pick_folder())
             elif self.command == "POST" and path == "/api/shutdown":
@@ -268,6 +294,7 @@ class Handler(BaseHTTPRequestHandler):
             raise _bad("Falta Content-Length con el tamaño del cuerpo.") from None
         if length < 0 or length > MAX_BODY:
             raise _bad("El cuerpo supera 1 MB. Envía menos datos.")
+        self._body_read = True
         try:
             body = json.loads(self.rfile.read(length).decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
@@ -298,6 +325,19 @@ class Handler(BaseHTTPRequestHandler):
             return func(**kwargs).to_dict()
         except (ValueError, KeyError) as exc:
             raise _bad(f"No se pudo completar '{name}': {exc}") from None
+
+    def _undo_call(self, execute: bool, body: dict) -> dict:
+        _check_keys(body, {"id"}, set())
+        app_id = body.get("id")
+        if app_id is not None and not isinstance(app_id, str):
+            raise _bad("id debe ser el texto de la aplicación o null.")
+        try:
+            if execute:
+                return linker.undo(app_id).to_dict()
+            return linker.undo_plan(app_id).to_dict()
+        except linker.UndoError as exc:
+            status = HTTPStatus.NOT_FOUND if exc.code == "none" else HTTPStatus.CONFLICT
+            raise ApiError(status, str(exc)) from None
 
     def _pick_folder(self) -> dict:
         try:
