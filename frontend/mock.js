@@ -80,7 +80,15 @@
     });
     const summary = { ok: 0, error: 0, skipped: 0 };
     results.forEach((r) => { summary[r.status] += 1; });
-    return { results, summary };
+    if (summary.ok) mockApp = { id: 'mock-1', timestamp: new Date().toISOString(), scope: body.scope, project_dir: null, entries: summary.ok };
+    return { results, summary, application_id: summary.ok ? 'mock-1' : null };
+  }
+
+  let mockApp = null;
+  function undoPlanData() {
+    const actions = [{ skill: 'revisar-codigo', harness_id: 'claude-code', target: '/home/demo/.claude/skills/revisar-codigo',
+      action: 'remove_link', reason: 'Quita el enlace creado.' }];
+    return { application: mockApp, actions, summary: { remove_link: 1, restore: 0, conflict: 0, skipped: 0 }, warnings: [] };
   }
 
   const realFetch = window.fetch.bind(window);
@@ -94,6 +102,14 @@
       res = body.scope === 'project' && !body.project_dir ? reply({ error: 'Falta project_dir para el alcance de proyecto.' }, 400) : reply(scanData(body));
     } else if (path === '/api/plan') res = reply(planData(body));
     else if (path === '/api/apply') res = reply(applyData(body));
+    else if (path === '/api/history') res = reply({ last: mockApp });
+    else if (path === '/api/undo-plan') res = mockApp ? reply(undoPlanData()) : reply({ error: 'No hay ninguna aplicación que deshacer.' }, 404);
+    else if (path === '/api/undo') {
+      const done = { application_id: 'mock-1', results: undoPlanData().actions.map((a) => Object.assign({}, a, { status: 'ok', message: 'Enlace quitado.' })),
+        summary: { ok: 1, error: 0, skipped: 0, conflict: 0 } };
+      mockApp = null;
+      res = reply(done);
+    }
     else if (path === '/api/pick-folder') res = reply({ path: 'C:\\Users\\demo\\mi-proyecto' });
     else if (path === '/api/shutdown') res = reply({ ok: true });
     else res = reply({ error: 'Ruta de API desconocida.' }, 404);

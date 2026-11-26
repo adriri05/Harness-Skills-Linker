@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from . import catalog, picker, scanner
+from . import catalog, history, linker, picker, scanner
 
 HOST = "127.0.0.1"
 MAX_BODY = 1024 * 1024
@@ -241,6 +241,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(self._scan(self._read_json()))
             elif self.command == "POST" and path in ("/api/plan", "/api/apply"):
                 self._json(self._linker_call(path.rsplit("/", 1)[1], self._read_json()))
+            elif self.command == "GET" and path == "/api/history":
+                self._json({"last": history.summarize(history.last())})
+            elif self.command == "POST" and path in ("/api/undo-plan", "/api/undo"):
+                self._json(self._undo_call(path == "/api/undo", self._read_json()))
             elif self.command == "POST" and path == "/api/pick-folder":
                 self._json(self._pick_folder())
             elif self.command == "POST" and path == "/api/shutdown":
@@ -298,6 +302,19 @@ class Handler(BaseHTTPRequestHandler):
             return func(**kwargs).to_dict()
         except (ValueError, KeyError) as exc:
             raise _bad(f"No se pudo completar '{name}': {exc}") from None
+
+    def _undo_call(self, execute: bool, body: dict) -> dict:
+        _check_keys(body, {"id"}, set())
+        app_id = body.get("id")
+        if app_id is not None and not isinstance(app_id, str):
+            raise _bad("id debe ser el texto de la aplicación o null.")
+        try:
+            if execute:
+                return linker.undo(app_id).to_dict()
+            return linker.undo_plan(app_id).to_dict()
+        except linker.UndoError as exc:
+            status = HTTPStatus.NOT_FOUND if exc.code == "none" else HTTPStatus.CONFLICT
+            raise ApiError(status, str(exc)) from None
 
     def _pick_folder(self) -> dict:
         try:

@@ -76,6 +76,16 @@
       <h2 id="h-results">Resultados</h2>
       <div id="results" aria-live="polite"></div>
     </section>
+
+    <section aria-labelledby="h-undo" id="undo-section" hidden>
+      <h2 id="h-undo">Última aplicación</h2>
+      <p id="undo-info" class="muted"></p>
+      <div class="fields">
+        <button type="button" id="btn-undo-plan">Calcular reversión</button>
+        <button type="button" id="btn-undo" class="btn-danger" disabled>Deshacer aplicación</button>
+      </div>
+      <div id="undo-plan" aria-live="polite"></div>
+    </section>
   </main>
 
   <dialog id="confirm-dialog" aria-labelledby="confirm-title">

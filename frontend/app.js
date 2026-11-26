@@ -15,6 +15,8 @@
     open: new Set(),   // harnesses con el detalle desplegado
     plan: null,        // último plan calculado
     planStale: false,  // la selección cambió después de calcularlo
+    lastApp: null,     // última aplicación registrada, la única que se puede deshacer
+    undoPlan: null,    // plan de reversión calculado para lastApp
     busy: false,
     stopped: false,
   };
@@ -63,14 +65,16 @@
     return meta ? meta.content : '';
   }
 
-  async function api(path, body) {
+  async function api(path, body, method) {
     let res;
     try {
-      res = await fetch(path, {
-        method: 'POST',
-        headers: { 'X-Session-Token': token(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(body || {}),
-      });
+      res = await fetch(path, method === 'GET'
+        ? { method: 'GET', headers: { 'X-Session-Token': token() } }
+        : {
+          method: 'POST',
+          headers: { 'X-Session-Token': token(), 'Content-Type': 'application/json' },
+          body: JSON.stringify(body || {}),
+        });
     } catch (e) {
       throw new Error('No hay conexión con el servidor local. Comprueba que sigue abierto y recarga la página.');
     }
@@ -120,8 +124,9 @@
 
   function setBusy(busy) {
     state.busy = busy;
-    for (const id of ['btn-scan', 'btn-plan']) $(id).disabled = busy || state.stopped;
+    for (const id of ['btn-scan', 'btn-plan', 'btn-undo-plan']) $(id).disabled = busy || state.stopped;
     updateApply();
+    updateUndo();
   }
 
   // ---------- harnesses (#10) ----------
@@ -338,16 +343,18 @@
     hint.hidden = !reason;
   }
 
-  function actionTable(actions) {
+  function actionTable(actions, withSource) {
+    const showSource = withSource !== false;
     const rows = actions.map((a) => h('tr', null,
       h('td', { text: a.skill }),
       h('td', { text: a.harness_id }),
       h('td', { class: 'path', text: a.target || '' }),
-      h('td', { class: 'path', text: a.source || '' }),
+      showSource && h('td', { class: 'path', text: a.source || '' }),
       h('td', { text: [a.reason, a.resolution ? 'Resolución: ' + a.resolution : ''].filter(Boolean).join('. ') }),
     ));
+    const cols = showSource ? ['Skill', 'Harness', 'Destino', 'Origen', 'Motivo'] : ['Skill', 'Harness', 'Destino', 'Motivo'];
     return h('table', null,
-      h('thead', null, h('tr', null, ...['Skill', 'Harness', 'Destino', 'Origen', 'Motivo'].map((t) => h('th', { scope: 'col', text: t })))),
+      h('thead', null, h('tr', null, ...cols.map((t) => h('th', { scope: 'col', text: t })))),
       h('tbody', null, ...rows));
   }
 
@@ -424,6 +431,7 @@
       renderResults(data);
       // Tras aplicar, el plan anterior ya no describe el estado del disco.
       state.planStale = true;
+      await refreshHistory();
       scan();
     } catch (e) {
       showBanner('No se pudieron aplicar los enlaces: ' + e.message);
@@ -432,7 +440,7 @@
     }
   }
 
-  function renderResults(data) {
+  function renderResults(data, isUndo) {
     const sec = $('results-section');
     const box = $('results');
     box.replaceChildren();
@@ -441,12 +449,14 @@
     box.append(h('ul', { class: 'summary' },
       h('li', { class: 'st-ok', text: 'Correctos: ' + (sum.ok || 0) }),
       h('li', { class: sum.error ? 'st-bad' : '', text: 'Con error: ' + (sum.error || 0) }),
+      sum.conflict ? h('li', { class: 'st-warn', text: 'Conflictos: ' + sum.conflict }) : null,
       h('li', { text: 'Omitidos: ' + (sum.skipped || 0) })));
     if (!results.length) {
       box.append(h('p', { class: 'muted', text: 'No se aplicó ninguna acción.' }));
     } else {
+      const STATUS = { ok: ['Correcto', 'st-ok'], error: ['Error', 'st-bad'], conflict: ['Conflicto', 'st-warn'], skipped: ['Omitido', 'muted'] };
       const rows = results.map((r) => h('tr', null,
-        h('td', { class: r.status === 'ok' ? 'st-ok' : r.status === 'error' ? 'st-bad' : 'muted', text: r.status === 'ok' ? 'Correcto' : r.status === 'error' ? 'Error' : 'Omitido' }),
+        h('td', { class: (STATUS[r.status] || STATUS.skipped)[1], text: (STATUS[r.status] || STATUS.skipped)[0] }),
         h('td', { text: r.skill }),
         h('td', { text: r.harness_id }),
         h('td', { class: 'path', text: r.target || '' }),
@@ -455,11 +465,96 @@
         h('thead', null, h('tr', null, ...['Estado', 'Skill', 'Harness', 'Destino', 'Detalle'].map((t) => h('th', { scope: 'col', text: t })))),
         h('tbody', null, ...rows)));
     }
-    if (sum.error) {
+    if (sum.error && !isUndo) {
       box.append(h('p', { class: 'st-bad', text: 'Algunos enlaces fallaron. En Windows, crear enlaces simbólicos requiere el Modo Desarrollador o permisos de administrador.' }));
     }
     sec.hidden = false;
     sec.scrollIntoView({ block: 'nearest' });
+  }
+
+  // ---------- deshacer (#32) ----------
+  const UNDO_LABELS = { remove_link: 'Quitar enlace', restore: 'Restaurar', conflict: 'Conflicto', skipped: 'Omitido' };
+  const UNDO_ORDER = ['remove_link', 'restore', 'conflict', 'skipped'];
+
+  function updateUndo() {
+    const sec = $('undo-section');
+    sec.hidden = !state.lastApp;
+    if (!state.lastApp) return;
+    const app = state.lastApp;
+    const when = new Date(app.timestamp);
+    $('undo-info').textContent = 'Aplicada el ' + (isNaN(when) ? app.timestamp : when.toLocaleString()) +
+      ' con ' + plural(app.entries, 'cambio', 'cambios') + '.';
+    $('btn-undo').disabled = state.busy || state.stopped || !state.undoPlan ||
+      !(state.undoPlan.summary.remove_link || state.undoPlan.summary.restore);
+  }
+
+  async function refreshHistory() {
+    try {
+      const data = await api('/api/history', null, 'GET');
+      state.lastApp = data.last || null;
+    } catch (e) {
+      state.lastApp = null;
+    }
+    state.undoPlan = null;
+    $('undo-plan').replaceChildren();
+    updateUndo();
+  }
+
+  function renderUndoPlan() {
+    const box = $('undo-plan');
+    box.replaceChildren();
+    const plan = state.undoPlan;
+    if (!plan) return;
+    box.append(h('ul', { class: 'summary' },
+      ...UNDO_ORDER.map((k) => h('li', { text: UNDO_LABELS[k] + ': ' + (plan.summary[k] || 0) }))));
+    if (!plan.summary.remove_link && !plan.summary.restore) {
+      box.append(h('p', { class: 'muted', text: 'No queda nada que se pueda revertir. Revisa los motivos de cada fila.' }));
+    }
+    for (const kind of UNDO_ORDER) {
+      const group = plan.actions.filter((a) => a.action === kind);
+      if (!group.length) continue;
+      box.append(h('div', { class: 'group' },
+        h('h3', { text: UNDO_LABELS[kind] + ' (' + group.length + ')' }),
+        actionTable(group, false)));
+    }
+  }
+
+  async function calcUndoPlan() {
+    if (!state.lastApp) return;
+    showBanner('');
+    setBusy(true);
+    try {
+      const plan = await api('/api/undo-plan', { id: state.lastApp.id });
+      plan.actions = plan.actions || [];
+      plan.summary = plan.summary || {};
+      state.undoPlan = plan;
+      renderUndoPlan();
+    } catch (e) {
+      showBanner('No se pudo calcular la reversión: ' + e.message);
+      await refreshHistory();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function undoApplication() {
+    if (!state.lastApp || !state.undoPlan) return;
+    const n = (state.undoPlan.summary.remove_link || 0) + (state.undoPlan.summary.restore || 0);
+    if (!window.confirm('Se revertirán ' + plural(n, 'cambio', 'cambios') + ': se quitan enlaces y se devuelven carpetas desde sus backups. ¿Continuar?')) return;
+    showBanner('');
+    setBusy(true);
+    try {
+      const data = await api('/api/undo', { id: state.lastApp.id });
+      renderResults(data, true);
+      state.planStale = true;
+      await refreshHistory();
+      scan();
+    } catch (e) {
+      showBanner('No se pudo deshacer: ' + e.message);
+      await refreshHistory();
+    } finally {
+      setBusy(false);
+    }
   }
 
   // ---------- servidor ----------
@@ -516,8 +611,11 @@
     $('btn-clear-visible').addEventListener('click', () => setAllVisible(false));
     $('btn-plan').addEventListener('click', calcPlan);
     $('btn-apply').addEventListener('click', applyPlan);
+    $('btn-undo-plan').addEventListener('click', calcUndoPlan);
+    $('btn-undo').addEventListener('click', undoApplication);
     $('btn-shutdown').addEventListener('click', shutdown);
     renderCanonical();
+    refreshHistory();
     scan();
   }
 
