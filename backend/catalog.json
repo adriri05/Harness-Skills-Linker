@@ -129,7 +129,6 @@
         "source": "https://antigravity.google/docs/rules",
         "note": "Suma las reglas de todos los niveles. También lee ~/.gemini/GEMINI.md, que comparte con Gemini CLI y no se gestiona aquí, y la carpeta de reglas modulares, que lleva cabecera propia."
       }
-      "note": "Oficial: global ~/.gemini/config/skills y proyecto .agents/skills, la misma carpeta que agents y codex. Siguen admitidas las rutas anteriores ~/.gemini/antigravity/skills y .agent/skills, no gestionadas aquí. El CLI (agy) lee además ~/.gemini/antigravity-cli/skills y ~/.gemini/skills, que la app no lee."
     },
     {
       "id": "github-copilot",
