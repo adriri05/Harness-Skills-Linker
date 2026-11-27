@@ -1,5 +1,7 @@
 """Plan dry-run (issue #5), aplicación de enlaces (issues #6, #7, #8) y deshacer (issue #32).
 
+Los archivos de instrucciones (issue #33) viven en `instructions`; el deshacer es común.
+
 `build_plan` solo lee el disco. `apply` recalcula el plan, lo ejecuta y registra
 lo hecho en `history`. `undo_plan` y `undo` revierten la última aplicación.
 Nunca se borra ni se sobrescribe una carpeta real: solo se sustituyen enlaces,
@@ -495,6 +497,10 @@ def _restores(e: dict) -> bool:
 
 def _inspect_undo(e: dict) -> UndoAction:
     """Decide qué haría deshacer esta entrada, sin tocar el disco."""
+    if e.get("item") == "file":
+        from . import instructions  # import tardío: instructions importa este módulo
+
+        return instructions.inspect_undo(e)
     target = Path(e["target"])
     backup = e.get("backup")
     where = f" El backup sigue en {backup}." if backup and os.path.lexists(backup) else ""
@@ -559,6 +565,10 @@ def _restore_link(target: Path, raw: str) -> None:
 
 def _run_undo(ua: UndoAction) -> tuple[str, str]:
     e = ua.entry
+    if e.get("item") == "file":
+        from . import instructions
+
+        return instructions.run_undo(ua)
     if ua.action in ("skipped", "conflict"):
         return ua.action, ua.reason
     target = Path(e["target"])

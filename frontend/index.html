@@ -17,7 +17,12 @@
   <div id="banner" role="alert" hidden></div>
 
   <main id="app">
-    <section aria-labelledby="h-harnesses">
+    <div class="tabs" role="tablist" aria-label="Qué enlazar">
+      <button type="button" role="tab" id="tab-skills" aria-controls="panel-skills" aria-selected="true">Skills</button>
+      <button type="button" role="tab" id="tab-instructions" aria-controls="panel-instructions" aria-selected="false" tabindex="-1">Instrucciones</button>
+    </div>
+
+    <section aria-labelledby="h-harnesses" id="panel-skills" data-tab="skills">
       <div class="section-head">
         <h2 id="h-harnesses">Harnesses</h2>
         <button type="button" id="btn-scan">Volver a escanear</button>
@@ -60,7 +65,7 @@
       </div>
     </section>
 
-    <section aria-labelledby="h-plan">
+    <section aria-labelledby="h-plan" data-tab="skills">
       <h2 id="h-plan">Plan de enlaces</h2>
       <div class="fields">
         <label>Carpeta canónica <select id="canonical"></select></label>
@@ -70,6 +75,22 @@
       </div>
       <p id="apply-hint" class="muted" hidden></p>
       <div id="plan" aria-live="polite"></div>
+    </section>
+
+    <section aria-labelledby="h-instr" id="panel-instructions" data-tab="instructions" hidden>
+      <div class="section-head">
+        <h2 id="h-instr">Archivos de instrucciones</h2>
+        <button type="button" id="btn-instr-scan">Volver a escanear</button>
+      </div>
+      <div id="instr-list" class="harness-scroll" aria-live="polite"></div>
+      <div class="fields instr-plan-fields">
+        <label>Archivo canónico <select id="instr-canonical"></select></label>
+        <label>Regla de conflicto <select id="instr-rule"></select></label>
+        <button type="button" id="btn-instr-plan">Calcular plan</button>
+        <button type="button" id="btn-instr-apply" class="btn-primary" disabled>Aplicar enlaces</button>
+      </div>
+      <p id="instr-hint" class="muted" hidden></p>
+      <div id="instr-plan" aria-live="polite"></div>
     </section>
 
     <section aria-labelledby="h-results" id="results-section" hidden>
@@ -101,5 +122,6 @@
 
   <script src="mock.js"></script>
   <script src="app.js"></script>
+  <script src="instructions.js"></script>
 </body>
 </html>

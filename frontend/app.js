@@ -20,6 +20,7 @@
     busy: false,
     stopped: false,
   };
+  const listeners = { busy: [], change: [] };  // ganchos para instructions.js
 
   const RULES = [
     ['none', 'Solo marcar conflictos'],
@@ -127,6 +128,16 @@
     for (const id of ['btn-scan', 'btn-plan', 'btn-undo-plan']) $(id).disabled = busy || state.stopped;
     updateApply();
     updateUndo();
+    for (const fn of listeners.busy) fn(busy);
+  }
+
+  function setTab(name) {
+    for (const tab of document.querySelectorAll('[role="tab"]')) {
+      const on = tab.id === 'tab-' + name;
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      tab.tabIndex = on ? 0 : -1;
+    }
+    for (const el of document.querySelectorAll('[data-tab]')) el.hidden = el.dataset.tab !== name;
   }
 
   // ---------- harnesses (#10) ----------
@@ -251,6 +262,7 @@
 
   async function scan() {
     if (state.stopped) return;
+    for (const fn of listeners.change) fn();
     if (state.scope === 'project' && !$('project-dir').value.trim()) {
       state.harnesses = [];
       renderHarnesses();
@@ -343,7 +355,7 @@
     hint.hidden = !reason;
   }
 
-  function actionTable(actions, withSource) {
+  function actionTable(actions, withSource, itemLabel) {
     const showSource = withSource !== false;
     const rows = actions.map((a) => h('tr', null,
       h('td', { text: a.skill }),
@@ -352,7 +364,8 @@
       showSource && h('td', { class: 'path', text: a.source || '' }),
       h('td', { text: [a.reason, a.resolution ? 'Resolución: ' + a.resolution : ''].filter(Boolean).join('. ') }),
     ));
-    const cols = showSource ? ['Skill', 'Harness', 'Destino', 'Origen', 'Motivo'] : ['Skill', 'Harness', 'Destino', 'Motivo'];
+    const item = itemLabel || 'Skill';
+    const cols = showSource ? [item, 'Harness', 'Destino', 'Origen', 'Motivo'] : [item, 'Harness', 'Destino', 'Motivo'];
     return h('table', null,
       h('thead', null, h('tr', null, ...cols.map((t) => h('th', { scope: 'col', text: t })))),
       h('tbody', null, ...rows));
@@ -462,11 +475,11 @@
         h('td', { class: 'path', text: r.target || '' }),
         h('td', { text: r.message || '' })));
       box.append(h('table', null,
-        h('thead', null, h('tr', null, ...['Estado', 'Skill', 'Harness', 'Destino', 'Detalle'].map((t) => h('th', { scope: 'col', text: t })))),
+        h('thead', null, h('tr', null, ...['Estado', 'Elemento', 'Harness', 'Destino', 'Detalle'].map((t) => h('th', { scope: 'col', text: t })))),
         h('tbody', null, ...rows)));
     }
     if (sum.error && !isUndo) {
-      box.append(h('p', { class: 'st-bad', text: 'Algunos enlaces fallaron. En Windows, crear enlaces simbólicos requiere el Modo Desarrollador o permisos de administrador.' }));
+      box.append(h('p', { class: 'st-bad', text: 'Algunos enlaces fallaron. En Windows, crear symlinks requiere el Modo Desarrollador o permisos de administrador; sin ellos, los archivos usan enlaces duros y solo valen dentro del mismo volumen.' }));
     }
     sec.hidden = false;
     sec.scrollIntoView({ block: 'nearest' });
@@ -540,7 +553,7 @@
   async function undoApplication() {
     if (!state.lastApp || !state.undoPlan) return;
     const n = (state.undoPlan.summary.remove_link || 0) + (state.undoPlan.summary.restore || 0);
-    if (!window.confirm('Se revertirán ' + plural(n, 'cambio', 'cambios') + ': se quitan enlaces y se devuelven carpetas desde sus backups. ¿Continuar?')) return;
+    if (!window.confirm('Se revertirán ' + plural(n, 'cambio', 'cambios') + ': se quitan enlaces y se devuelven carpetas y archivos desde sus backups. ¿Continuar?')) return;
     showBanner('');
     setBusy(true);
     try {
@@ -614,10 +627,17 @@
     $('btn-undo-plan').addEventListener('click', calcUndoPlan);
     $('btn-undo').addEventListener('click', undoApplication);
     $('btn-shutdown').addEventListener('click', shutdown);
+    document.querySelectorAll('[role="tab"]').forEach((tab) => tab.addEventListener('click', () => setTab(tab.id.slice(4))));
+    setTab('skills');
     renderCanonical();
     refreshHistory();
     scan();
   }
 
+  window.HSL = {
+    $, h, plural, api, showBanner, state, actionTable, renderResults, refreshHistory,
+    baseBody, on: (event, fn) => listeners[event].push(fn),
+    changed: scan,
+  };
   init();
 })();

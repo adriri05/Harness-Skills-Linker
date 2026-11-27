@@ -1,6 +1,6 @@
 # Harness Skills Linker
 
-Herramienta web local que detecta los harnesses de agentes instalados en tu equipo (Claude Code, Codex, Cursor, OpenCode, Gemini CLI, Antigravity) y enlaza sus skills con symlinks, para mantener una sola copia de cada skill en lugar de una por harness.
+Herramienta web local que detecta los harnesses de agentes instalados en tu equipo (Claude Code, Codex, Cursor, OpenCode, Gemini CLI, Antigravity) y enlaza sus skills y sus archivos de instrucciones (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) con enlaces, para mantener una sola copia en lugar de una por harness.
 
 ## Qué problema resuelve
 
@@ -14,7 +14,7 @@ Cada harness lee sus skills de una carpeta distinta (`~/.claude/skills`, `~/.cur
 ## Requisitos
 
 - Python 3.10 o superior, sin dependencias externas.
-- Windows: Modo Desarrollador activado, o una terminal con privilegios, para poder crear symlinks.
+- Windows: Modo Desarrollador activado, o una terminal con privilegios, para poder crear symlinks. Sin ellos, las carpetas de skills usan junctions y los archivos de instrucciones, enlaces duros.
 
 ## Uso
 
@@ -73,6 +73,28 @@ Cuando la misma skill existe como carpeta real en varios harnesses:
 | Preferir un harness | La versión de ese harness gana. |
 | Mover a la carpeta canónica | Las carpetas reales se mueven a la canónica con backup y se enlazan. Pide confirmación. |
 
+## Archivos de instrucciones
+
+La pestaña **Instrucciones** enlaza el archivo de instrucciones de cada harness a un archivo canónico, con el mismo flujo que las skills: plan, aplicar y deshacer. Comparte con las skills el alcance, el historial y las reglas de conflicto.
+
+| Harness | Global | Proyecto |
+| --- | --- | --- |
+| Claude Code | `~/.claude/CLAUDE.md` (o `$CLAUDE_CONFIG_DIR/CLAUDE.md`) | `CLAUDE.md` |
+| Codex | `~/.codex/AGENTS.md` (o `$CODEX_HOME/AGENTS.md`) | `AGENTS.md` |
+| Cursor | sin archivo, las reglas de usuario están en Cursor Settings | `AGENTS.md` |
+| OpenCode | `~/.config/opencode/AGENTS.md` | `AGENTS.md` |
+| Gemini CLI | `~/.gemini/GEMINI.md` | `GEMINI.md` |
+| Antigravity | `~/.gemini/config/AGENTS.md` | `AGENTS.md` |
+
+La fuente oficial de cada ruta está en la entrada `instructions` de [backend/catalog.json](backend/catalog.json). Los harnesses que leen la misma ruta, como `AGENTS.md` en un proyecto, forman una sola fila del plan.
+
+Decisiones de esta versión:
+
+- **Tipo de enlace.** Se usa un symlink de archivo. En Windows sin privilegios se usa un enlace duro, que solo vale dentro del mismo volumen y que algunos editores rompen al guardar, y el plan lo avisa. Nunca se copia el contenido. Si ninguno de los dos es posible, la acción falla con el motivo.
+- **Solo el archivo único.** Las carpetas de reglas con varios archivos y cabecera propia (`.cursor/rules`, las reglas modulares de Antigravity) y los archivos `override` de Codex no se gestionan.
+- **Mismo formato.** `AGENTS.md`, `CLAUDE.md` y `GEMINI.md` son Markdown sin cabecera, así que el enlace es válido entre ellos. El nombre de archivo de Gemini CLI se puede cambiar con `context.fileName`; aquí se usa el predeterminado.
+- **Conflictos.** Dos archivos reales distintos se tratan como dos skills: conflicto sin regla, y con las reglas de mover se hace backup en `.linker-backup`, junto al archivo, y se enlaza. El canónico puede ser un harness o una ruta absoluta.
+
 ## Harnesses del catálogo
 
 Definidos en [backend/catalog.json](backend/catalog.json), con la fuente oficial de cada ruta.
@@ -104,6 +126,9 @@ Todas las rutas exigen la cabecera de token de sesión que la página recibe al 
 | `POST /api/scan` | Escanea con alcance, proyecto y carpetas personalizadas. |
 | `POST /api/plan` | Calcula el plan sin modificar el disco. |
 | `POST /api/apply` | Recalcula el plan y lo ejecuta. Devuelve `application_id` si cambió algo. |
+| `POST /api/instructions/scan` | Estado del archivo de instrucciones de cada harness en un alcance: `{"scope", "project_dir"}`. |
+| `POST /api/instructions/plan` | Plan de enlaces de instrucciones. Mismo cuerpo que `/api/plan` sin `custom`; `canonical` es un id de harness o una ruta absoluta. |
+| `POST /api/instructions/apply` | Recalcula el plan y lo ejecuta. Se deshace con `/api/undo`. |
 | `GET /api/history` | Última aplicación registrada: `{"last": {id, timestamp, scope, project_dir, entries}}` o `{"last": null}`. |
 | `POST /api/undo-plan` | Plan de reversión de la última aplicación, sin tocar el disco. Cuerpo opcional `{"id": ...}`. |
 | `POST /api/undo` | Deshace la última aplicación. Con `id` que no es la última responde 409; sin aplicaciones, 404. |
@@ -119,6 +144,7 @@ backend/
   catalog.py      Carga del catálogo y expansión de rutas
   scanner.py      Detección de harnesses y lectura de skills
   linker.py       Plan (dry-run), aplicación de enlaces y deshacer
+  instructions.py Plan y aplicación de enlaces de archivos de instrucciones
   history.py      Registro de aplicaciones en el home del usuario
   symlinks.py     Creación de symlinks por sistema operativo
   picker.py       Selector nativo de carpeta (tkinter en subproceso)
