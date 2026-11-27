@@ -91,6 +91,20 @@
     return { application: mockApp, actions, summary: { remove_link: 1, restore: 0, conflict: 0, skipped: 0 }, warnings: [] };
   }
 
+  const INSTR = [
+    { id: 'claude-code', name: 'Claude Code', path: '/mock/proyecto/CLAUDE.md', kind: 'missing', detected: true },
+    { id: 'codex', name: 'Codex', path: '/mock/proyecto/AGENTS.md', kind: 'real', detected: true },
+    { id: 'cursor', name: 'Cursor', path: null, kind: 'none', detected: false },
+  ].map((x) => Object.assign({ link_target: null, hardlinked: false, detail: '', binary_found: null,
+    source: 'https://example.test/docs', note: null }, x));
+
+  function instrPlan(body) {
+    const actions = [{ skill: 'CLAUDE.md', harness_id: 'claude-code', target: '/mock/proyecto/CLAUDE.md',
+      source: '/mock/proyecto/AGENTS.md', action: 'create_link', reason: 'Falta en este harness.', resolution: null }];
+    return { actions, summary: { create_link: 1, already_linked: 0, conflict: 0, skipped: 0 },
+      canonical: '/mock/proyecto/AGENTS.md', warnings: [] };
+  }
+
   const realFetch = window.fetch.bind(window);
   window.fetch = function (url, opts) {
     const path = typeof url === 'string' ? url : url.url;

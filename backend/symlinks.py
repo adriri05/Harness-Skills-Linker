@@ -89,6 +89,31 @@ def make_dir_link(link: str | os.PathLike[str], target: str | os.PathLike[str]) 
         raise LinkError(f"{detail} Fallback a junction falló: {exc}") from exc
 
 
+def make_file_link(link: str | os.PathLike[str], target: str | os.PathLike[str]) -> str:
+    """Crea `link` apuntando al archivo `target`. Devuelve 'symlink' o 'hardlink'.
+
+    Las junctions solo valen para carpetas. En Windows sin privilegios se usa un enlace
+    duro, que no los necesita pero exige el mismo volumen. Nunca se copia el contenido.
+    """
+    link_s, target_s = str(link), os.path.abspath(target)
+    try:
+        os.symlink(target_s, link_s)
+        return "symlink"
+    except (OSError, NotImplementedError) as exc:
+        if not _IS_WINDOWS:
+            raise LinkError(f"No se pudo crear el enlace {link_s}: {exc}") from exc
+        first = exc
+    try:
+        os.link(target_s, link_s)
+        return "hardlink"
+    except OSError as exc:
+        no_priv = getattr(first, "winerror", None) == _NO_PRIVILEGE_WINERROR
+        detail = WINDOWS_HELP if no_priv else f"No se pudo crear el enlace {link_s}: {first}."
+        raise LinkError(
+            f"{detail} El enlace duro también falló, solo funciona en el mismo volumen: {exc}"
+        ) from exc
+
+
 def remove_link(path: str | os.PathLike[str]) -> None:
     """Borra un enlace (symlink o junction) sin tocar su destino. Rechaza carpetas reales."""
     if not is_link(path):

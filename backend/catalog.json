@@ -24,7 +24,17 @@
       ],
       "verified": true,
       "source": "https://code.claude.com/docs/en/skills",
-      "note": "Confirmado en code.claude.com/docs/en/skills (~/.claude/skills y .claude/skills) y en /docs/en/claude-directory (CLAUDE_CONFIG_DIR sustituye a ~/.claude)."
+      "note": "Confirmado en code.claude.com/docs/en/skills (~/.claude/skills y .claude/skills) y en /docs/en/claude-directory (CLAUDE_CONFIG_DIR sustituye a ~/.claude).",
+      "instructions": {
+        "global": "~/.claude/CLAUDE.md",
+        "global_env": {
+          "var": "CLAUDE_CONFIG_DIR",
+          "subdir": "CLAUDE.md"
+        },
+        "project": "CLAUDE.md",
+        "source": "https://code.claude.com/docs/en/memory",
+        "note": "Lee CLAUDE.md, no AGENTS.md. Enlazarlo a un AGENTS.md comparte el contenido; la alternativa documentada es importarlo con @AGENTS.md desde CLAUDE.md."
+      }
     },
     {
       "id": "codex",
@@ -36,7 +46,17 @@
       ],
       "verified": true,
       "source": "https://learn.chatgpt.com/docs/build-skills",
-      "note": "La documentación oficial indica $HOME/.agents/skills y .agents/skills, las mismas carpetas que la entrada agents. También lee /etc/codex/skills (administración), no gestionada aquí."
+      "note": "La documentación oficial indica $HOME/.agents/skills y .agents/skills, las mismas carpetas que la entrada agents. También lee /etc/codex/skills (administración), no gestionada aquí.",
+      "instructions": {
+        "global": "~/.codex/AGENTS.md",
+        "global_env": {
+          "var": "CODEX_HOME",
+          "subdir": "AGENTS.md"
+        },
+        "project": "AGENTS.md",
+        "source": "https://developers.openai.com/codex/guides/agents-md",
+        "note": "En cada nivel usa el primer archivo no vacío entre AGENTS.override.md y AGENTS.md. Los archivos override no se gestionan aquí."
+      }
     },
     {
       "id": "cursor",
@@ -48,7 +68,13 @@
       ],
       "verified": true,
       "source": "https://cursor.com/docs/skills",
-      "note": "Oficial: proyecto .cursor/skills y .agents/skills; usuario ~/.cursor/skills y ~/.agents/skills. Compatibilidad: .claude/skills, .codex/skills, ~/.claude/skills, ~/.codex/skills."
+      "note": "Oficial: proyecto .cursor/skills y .agents/skills; usuario ~/.cursor/skills y ~/.agents/skills. Compatibilidad: .claude/skills, .codex/skills, ~/.claude/skills, ~/.codex/skills.",
+      "instructions": {
+        "global": null,
+        "project": "AGENTS.md",
+        "source": "https://cursor.com/docs/rules",
+        "note": "Las reglas de usuario se definen en Cursor Settings, no en un archivo: solo hay archivo a nivel de proyecto. Las reglas de .cursor/rules llevan cabecera propia y no se gestionan aquí."
+      }
     },
     {
       "id": "opencode",
@@ -60,7 +86,13 @@
       ],
       "verified": true,
       "source": "https://opencode.ai/docs/skills",
-      "note": "También lee ~/.claude/skills y ~/.agents/skills en global, y .claude/skills y .agents/skills en proyecto."
+      "note": "También lee ~/.claude/skills y ~/.agents/skills en global, y .claude/skills y .agents/skills en proyecto.",
+      "instructions": {
+        "global": "~/.config/opencode/AGENTS.md",
+        "project": "AGENTS.md",
+        "source": "https://opencode.ai/docs/rules/",
+        "note": "Si no hay AGENTS.md, recurre a CLAUDE.md. Lee además las rutas del campo instructions de opencode.json, no gestionadas aquí."
+      }
     },
     {
       "id": "gemini-cli",
@@ -72,7 +104,13 @@
       ],
       "verified": true,
       "source": "https://geminicli.com/docs/cli/skills/",
-      "note": "Oficial: usuario ~/.gemini/skills (alias ~/.agents/skills) y workspace .gemini/skills (alias .agents/skills). El alias .agents/skills tiene prioridad."
+      "note": "Oficial: usuario ~/.gemini/skills (alias ~/.agents/skills) y workspace .gemini/skills (alias .agents/skills). El alias .agents/skills tiene prioridad.",
+      "instructions": {
+        "global": "~/.gemini/GEMINI.md",
+        "project": "GEMINI.md",
+        "source": "https://geminicli.com/docs/cli/gemini-md/",
+        "note": "El nombre del archivo se puede cambiar con context.fileName en settings.json; aquí se usa el predeterminado."
+      }
     },
     {
       "id": "antigravity",
@@ -84,7 +122,13 @@
       ],
       "verified": true,
       "source": "https://antigravity.google/docs/skills",
-      "note": "Oficial: global ~/.gemini/config/skills y proyecto .agents/skills, la misma carpeta que agents y codex. Siguen admitidas las rutas anteriores ~/.gemini/antigravity/skills y .agent/skills, no gestionadas aquí. El CLI (agy) lee además ~/.gemini/antigravity-cli/skills y ~/.gemini/skills, que la app no lee."
+      "note": "Oficial: global ~/.gemini/config/skills y proyecto .agents/skills, la misma carpeta que agents y codex. Siguen admitidas las rutas anteriores ~/.gemini/antigravity/skills y .agent/skills, no gestionadas aquí. El CLI (agy) lee además ~/.gemini/antigravity-cli/skills y ~/.gemini/skills, que la app no lee.",
+      "instructions": {
+        "global": "~/.gemini/config/AGENTS.md",
+        "project": "AGENTS.md",
+        "source": "https://antigravity.google/docs/rules",
+        "note": "Suma las reglas de todos los niveles. También lee ~/.gemini/GEMINI.md, que comparte con Gemini CLI y no se gestiona aquí, y la carpeta de reglas modulares, que lleva cabecera propia."
+      }
     },
     {
       "id": "github-copilot",

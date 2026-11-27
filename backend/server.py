@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from . import catalog, history, linker, picker, scanner
+from . import catalog, history, instructions, linker, picker, scanner
 
 HOST = "127.0.0.1"
 MAX_BODY = 1024 * 1024
@@ -132,6 +132,23 @@ def validate_plan(body: dict) -> dict:
         "conflict_rule": rule,
         "custom": _validate_custom(body.get("custom")),
     }
+
+
+def validate_instructions_scan(body: dict) -> dict:
+    _check_keys(body, {"scope", "project_dir"}, {"scope"})
+    scope, project_dir = _validate_scope(body)
+    return {"scope": scope, "project_dir": project_dir}
+
+
+def validate_instructions_plan(body: dict) -> dict:
+    _check_keys(
+        body,
+        {"harness_ids", "scope", "project_dir", "canonical", "conflict_rule"},
+        {"harness_ids", "scope", "conflict_rule"},
+    )
+    kwargs = validate_plan(body)
+    del kwargs["custom"]
+    return kwargs
 
 
 class LocalServer(ThreadingHTTPServer):
@@ -263,6 +280,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(self._scan(self._read_json()))
             elif self.command == "POST" and path in ("/api/plan", "/api/apply"):
                 self._json(self._linker_call(path.rsplit("/", 1)[1], self._read_json()))
+            elif self.command == "POST" and path == "/api/instructions/scan":
+                args = validate_instructions_scan(self._read_json())
+                self._json({"harnesses": instructions.scan(args["scope"], args["project_dir"])})
+            elif self.command == "POST" and path in ("/api/instructions/plan", "/api/instructions/apply"):
+                self._json(self._instructions_call(path.rsplit("/", 1)[1], self._read_json()))
             elif self.command == "GET" and path == "/api/history":
                 self._json({"last": history.summarize(history.last())})
             elif self.command == "POST" and path in ("/api/undo-plan", "/api/undo"):
@@ -321,6 +343,14 @@ class Handler(BaseHTTPRequestHandler):
                 HTTPStatus.NOT_IMPLEMENTED,
                 f"La operación '{name}' no está disponible en esta versión. Actualiza la aplicación.",
             )
+        try:
+            return func(**kwargs).to_dict()
+        except (ValueError, KeyError) as exc:
+            raise _bad(f"No se pudo completar '{name}': {exc}") from None
+
+    def _instructions_call(self, name: str, body: dict) -> dict:
+        kwargs = validate_instructions_plan(body)
+        func = instructions.build_plan if name == "plan" else instructions.apply
         try:
             return func(**kwargs).to_dict()
         except (ValueError, KeyError) as exc:
