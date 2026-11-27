@@ -39,6 +39,7 @@ from .linker import (
 from .symlinks import LinkError, can_create_symlinks, is_link, make_file_link, remove_link
 
 FileId = tuple
+_IS_WINDOWS = os.name == "nt"
 
 
 @dataclass
@@ -195,7 +196,7 @@ def build_plan(
         if pid not in seen_ids:
             plan.warnings.append(f"La regla prefiere '{pid}', que no está entre los harnesses seleccionados.")
 
-    if os.name == "nt" and not can_create_symlinks():
+    if _IS_WINDOWS and not can_create_symlinks():
         plan.warnings.append(
             "Sin privilegios, Windows no permite symlinks de archivo. Se crearán enlaces duros, que solo "
             "valen dentro del mismo volumen y que algunos editores rompen al guardar: el archivo pasa "

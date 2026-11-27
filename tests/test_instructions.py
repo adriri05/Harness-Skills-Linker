@@ -178,7 +178,7 @@ class PlanTest(InstructionsBase):
                          {"skill", "harness_id", "target", "source", "action", "reason", "resolution"})
 
     def test_windows_without_privileges_warns_about_hard_links(self):
-        with mock.patch.object(instructions.os, "name", "nt"), \
+        with mock.patch.object(instructions, "_IS_WINDOWS", True), \
                 mock.patch.object(instructions, "can_create_symlinks", return_value=False):
             plan = self.plan()
         self.assertTrue(any("enlaces duros" in w for w in plan.warnings))
